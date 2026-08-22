@@ -51,6 +51,13 @@
   .wbtn{flex:0 0 auto;border:1px solid var(--border);background:var(--bg2);color:var(--muted);padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
   .wbtn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
   .wbtn:hover{border-color:var(--border2);color:var(--text)}
+  .wbtn .now-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#19C37D;margin-left:7px;box-shadow:0 0 0 3px rgba(25,195,125,.25);vertical-align:1px}
+  .now-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px;border-radius:999px;background:rgba(25,195,125,.15);color:#19C37D;border:1px solid rgba(25,195,125,.45);margin:0 0 8px}
+  .now-badge.other{background:rgba(255,214,90,.10);color:#FFD65A;border-color:rgba(255,214,90,.35)}
+  .name-saved{display:flex;align-items:center;gap:10px;font-size:14px}
+  .name-saved .ok{color:#19C37D;font-weight:900}
+  .btn-mini{background:transparent;color:var(--muted);border:1px solid var(--border);padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+  .btn-mini:hover{color:var(--text);border-color:var(--border2)}
 
   .week-title{font-family:"Sora",Inter,sans-serif;font-weight:700;font-size:28px;line-height:1.1;letter-spacing:-0.02em;margin:22px 0 8px}
   @media(min-width:720px){.week-title{font-size:32px;margin:26px 0 10px}}
@@ -148,14 +155,16 @@
   <div class="shell">
     <div class="maincol">
       <h1 class="week-title" id="weekTitle">Vecka 34 • 17-23 aug</h1>
+      <div id="nowBadge" class="now-badge" style="display:none">● Denna vecka</div>
       <p class="week-sub" id="weekSub">Standardtider i ordning – lördag alltid sist. Alla dagar visas, även tomma.</p>
 
       <div class="name-box">
         <div class="name-label">Vad heter du?</div>
-        <div class="name-row">
+        <div class="name-row" id="nameEditRow">
           <input id="nameInput" class="name-input" maxlength="40" placeholder="T.ex. Johan" autocomplete="name" />
           <button id="saveNameBtn" class="btn-primary">Spara</button>
         </div>
+        <div class="name-saved" id="nameSavedRow" style="display:none"><span class="ok">✓</span><span>Sparat som <b id="nameSavedName"></b></span><button id="editNameBtn" class="btn-mini" style="margin-left:auto">Ändra</button></div>
         <div class="name-hint">Sparas lokalt i din enhet — ingen inloggning. Öppen för alla med länken.</div>
       </div>
 
@@ -224,6 +233,9 @@ const WEEKS=[
   {id:'v38', n:38, label:'Vecka 38 • 14-20 sep', range:'14-20 sep'},
   {id:'v39', n:39, label:'Vecka 39 • 21-27 sep', range:'21-27 sep'},
 ];
+function isoWeekNum(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(x.getUTCDay()||7); x.setUTCDate(x.getUTCDate()+4-day); const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)); return Math.ceil((((x-y)/86400000)+1)/7); }
+const THIS_WEEK_NO=Math.min(Math.max(isoWeekNum(new Date()),34),39);
+
 const DAYS_FULL=['Måndag','Tisdag','Onsdag','Torsdag','Fredag','Lördag','Söndag'];
 const DAYS_SHORT={'Måndag':'mån','Tisdag':'tis','Onsdag':'ons','Torsdag':'tor','Fredag':'fre','Lördag':'lör','Söndag':'sön'};
 
@@ -317,10 +329,12 @@ async function loadFromNpoint(){
 function currentWeek(){ return WEEKS.find(w=>w.id===state.weekId)||WEEKS[0]; }
 function renderWeekNav(){
   const nav=document.getElementById('weekNav'); nav.innerHTML='';
+  const tw=WEEKS.find(x=>x.n===THIS_WEEK_NO);
   WEEKS.forEach(w=>{
     const b=document.createElement('button');
     b.className='wbtn'+(w.id===state.weekId?' active':'');
-    b.textContent='v'+w.n;
+    if(tw&&w.id===tw.id){ b.innerHTML='v'+w.n+'<span class="now-dot" title="Aktuell vecka"></span>'; }
+    else b.textContent='v'+w.n;
     b.onclick=()=>{ state.weekId=w.id; try{history.replaceState(null,'','?v='+w.id);}catch(e){} render(); saveAllLocal(); };
     nav.appendChild(b);
   });
@@ -335,6 +349,13 @@ function render(){
   try{
     const wk=currentWeek();
     document.getElementById('weekTitle').textContent=wk.label;
+    const badge=document.getElementById('nowBadge');
+    const tw=WEEKS.find(x=>x.n===THIS_WEEK_NO);
+    if(badge){
+      if(tw&&wk.id===tw.id){ badge.style.display='inline-flex'; badge.classList.remove('other'); badge.textContent='● Denna vecka'; }
+      else if(tw){ badge.style.display='inline-flex'; badge.classList.add('other'); badge.textContent='Aktuell vecka är v'+tw.n; }
+      else badge.style.display='none';
+    }
     document.getElementById('addCustomBtn').textContent='+ Lägg till egen tid — gäller bara '+wk.id;
     renderWeekNav();
     renderName();
@@ -345,9 +366,19 @@ function render(){
   }catch(e){ window.__showAppError&&window.__showAppError(e.message,e.stack); }
 }
 function renderName(){
+  const editRow=document.getElementById('nameEditRow');
+  const savedRow=document.getElementById('nameSavedRow');
   const inp=document.getElementById('nameInput');
-  if(document.activeElement!==inp) inp.value=state.name;
+  if(state.name&&!editingName){
+    if(editRow) editRow.style.display='none';
+    if(savedRow){ savedRow.style.display='flex'; document.getElementById('nameSavedName').textContent=state.name; }
+  }else{
+    if(editRow) editRow.style.display='flex';
+    if(savedRow) savedRow.style.display='none';
+    if(document.activeElement!==inp) inp.value=state.name;
+  }
 }
+let editingName=false;
 function renderFull(){
   const wk=currentWeek().id;
   const full=[];
@@ -464,8 +495,12 @@ document.getElementById('modalSave').onclick=()=>{
 
 document.getElementById('saveNameBtn').onclick=()=>{
   const v=(document.getElementById('nameInput').value||'').trim().slice(0,40);
-  state.name=v; saveAllLocal(); render();
+  state.name=v; saveAllLocal(); editingName=false;
+  const b=document.getElementById('saveNameBtn');
+  b.textContent=v?'Sparat ✓':'OK';
+  setTimeout(()=>{ b.textContent='Spara'; render(); },450);
 };
+document.getElementById('editNameBtn').onclick=()=>{ editingName=true; render(); const inp=document.getElementById('nameInput'); inp.focus(); inp.select(); };
 document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('saveNameBtn').click(); });
 document.getElementById('addCustomBtn').onclick=()=>openModal('Fredag');
 
