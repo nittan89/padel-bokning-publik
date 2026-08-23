@@ -94,6 +94,8 @@
   .day-name{font-family:"Sora",sans-serif;font-weight:700;font-size:18px;letter-spacing:-.01em}
   .day-count{font-size:12px;color:var(--muted2)}
   .slots{display:grid;gap:10px}
+  .match-link{display:inline-block;font-size:12.5px;font-weight:600;color:var(--blue-acc);text-decoration:none;border:1px solid rgba(90,160,255,.35);border-radius:999px;padding:3px 10px;margin-top:2px}
+  .match-link:hover,.match-link:active{text-decoration:underline;filter:brightness(1.15)}
 
   .slot{position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 12px 11px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
   .slot.full{border-color:var(--green-border);background:linear-gradient(0deg, rgba(25,195,125,.09), rgba(25,195,125,.09)), var(--card)}
@@ -259,7 +261,7 @@ const LS_BOKAD='padel-bokning-publik-bokad';
 const NPOINT_ID='48f748aa3ac334cb412b';
 const NPOINT_URL='https://api.npoint.io/'+NPOINT_ID;
 
-let state={ weekId:'v34', name:'', bookings:{}, custom:{}, bokad:{}, npointLoaded:false };
+let state={ weekId:'v34', name:'', bookings:{}, custom:{}, bokad:{}, links:{}, npointLoaded:false };
 
 function initState(){
   state.name=(safeGet(LS_NAME)||'').slice(0,40);
@@ -286,7 +288,7 @@ function isAuditHost(){
 async function syncToNpoint(){
   if(isAuditHost()) return;
   try{
-    const payload={bookings:state.bookings,bokad:state.bokad,custom:state.custom,updated:new Date().toISOString()};
+    const payload={bookings:state.bookings,bokad:state.bokad,custom:state.custom,links:state.links||{},updated:new Date().toISOString()};
     const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),3000);
     await fetch(NPOINT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
   }catch(e){}
@@ -313,6 +315,7 @@ async function loadFromNpoint(){
           });
         });
         if(j.bokad) state.bokad={...state.bokad,...j.bokad};
+        if(j.links && typeof j.links==='object') state.links={...state.links,...j.links};
         WEEKS.forEach(w=>{
           if(j.custom&&j.custom[w.id]&&Array.isArray(j.custom[w.id])&&j.custom[w.id].length>0){
             if(!state.custom[w.id]||state.custom[w.id].length===0) state.custom[w.id]=j.custom[w.id];
@@ -391,7 +394,8 @@ function renderFull(){
     const row=document.createElement('div'); row.className='full-item';
     const key=wk+'-'+s.id; const bokad=!!state.bokad[key];
     const names=(state.bookings[wk][s.id]||[]).join(', ');
-    row.innerHTML=`<div class="full-left"><div class="dot"></div><div><div class="full-label">${s.short} <span class="badge-44">4/4</span></div><div class="full-meta">${esc(names)}</div></div></div><button class="toggle ${bokad?'on':''}" data-k="${key}">${bokad?'Bokad':'Ej bokad'}</button>`;
+    const lu=safeUrl((state.links||{})[key]||'');
+    row.innerHTML=`<div class="full-left"><div class="dot"></div><div><div class="full-label">${s.short} <span class="badge-44">4/4</span></div><div class="full-meta">${esc(names)}</div>${lu?`<div class="full-meta"><a class="match-link" href="${esc(lu)}" target="_blank" rel="noopener">🔗 Matchlänk (Padel Mates)</a></div>`:''}</div></div><button class="toggle ${bokad?'on':''}" data-k="${key}">${bokad?'Bokad':'Ej bokad'}</button>`;
     list.appendChild(row);
   });
   list.querySelectorAll('.toggle').forEach(btn=>{
@@ -399,6 +403,7 @@ function renderFull(){
   });
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function safeUrl(u){ try{ const w=new URL(u,location.origin); return (/^https?:$/.test(w.protocol))?u:''; }catch(e){ return ''; } }
 function renderDays(){
   const root=document.getElementById('daysRoot'); root.innerHTML='';
   const wkId=currentWeek().id;
@@ -423,6 +428,7 @@ function renderDays(){
         el.innerHTML=`
           <div class="slot-top"><div class="slot-time"><span class="abbr">${s.short}</span></div><div class="${pillCls}">${cnt}/4</div></div>
           ${list.length?`<div class="names">${list.map(n=>`<span class="name-chip ${n===state.name?'me':''}">${esc(n)} ${n===state.name?'<span style="color:var(--blue-acc)">• du</span>':''}</span>`).join('')}</div>`:`<div style="color:var(--muted2);font-size:12px">Inga bokade ännu</div>`}
+          ${(()=>{const u=safeUrl((state.links||{})[wkId+'-'+s.id]||'');return u?`<a class="match-link" href="${esc(u)}" target="_blank" rel="noopener">🔗 Matchlänk (Padel Mates)</a>`:'';})()}
           <div class="actions">
             ${hasMe?`<button class="btn-ghost" style="flex:1">Avboka</button>`:`<button class="btn-book" ${cnt>=4?'disabled':''}>${state.name?'Boka':'Fyll i namn ↑'}</button>`}
             ${!hasMe&&cnt>0?`<button class="btn-ghost">Ångra</button>`:``}
