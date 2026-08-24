@@ -256,6 +256,7 @@ const LS_NAME='padel-bokning-publik-namn';
 const LS_BOOK='padel-bokning-publik-bookings';
 const LS_CUSTOM='padel-bokning-publik-custom';
 const LS_BOKAD='padel-bokning-publik-bokad';
+const LS_LASTWRITE='padel-bokning-publik-lastwrite';
 
 // npoint - best effort, skip in audit iframe to avoid 404 console noise
 const NPOINT_ID='48f748aa3ac334cb412b';
@@ -289,6 +290,7 @@ async function syncToNpoint(){
   if(isAuditHost()) return;
   try{
     const payload={bookings:state.bookings,bokad:state.bokad,custom:state.custom,links:state.links||{},updated:new Date().toISOString()};
+    try{ localStorage.setItem(LS_LASTWRITE, payload.updated); }catch(e2){}
     const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),3000);
     await fetch(NPOINT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
   }catch(e){}
@@ -304,22 +306,28 @@ async function loadFromNpoint(){
       let hasData=false;
       Object.keys(j.bookings).forEach(wk=>{ const s=j.bookings[wk]; if(s && Object.keys(s).length>0) hasData=true; });
       if(hasData){
-        WEEKS.forEach(w=>{
-          if(!state.bookings[w.id]) state.bookings[w.id]={};
-          const remote=j.bookings[w.id]||{};
-          Object.keys(remote).forEach(sid=>{
-            const rl=Array.isArray(remote[sid])?remote[sid]:[];
-            const ll=state.bookings[w.id][sid]||[];
-            const union=Array.from(new Set([...ll,...rl])).slice(0,4);
-            state.bookings[w.id][sid]=union;
+        // Stale-write-skydd: om vi själva postat nyare än serverns 'updated' (npoint-cachat), hoppa över
+        let remoteUpdated=0; try{ remoteUpdated=Date.parse(j.updated||'')||0; }catch(e2){}
+        let localLastWrite=0; try{ localLastWrite=Date.parse(localStorage.getItem(LS_LASTWRITE)||'')||0; }catch(e3){}
+        if(remoteUpdated && localLastWrite && localLastWrite > remoteUpdated + 30000) return;
+        // Servern är sanningen: ERSÄTT helt så att avbokningar propagerar (ingen union-merge!)
+        const nb={};
+        Object.keys(j.bookings).forEach(wk=>{
+          nb[wk]={};
+          Object.keys(j.bookings[wk]).forEach(sid=>{
+            nb[wk][sid]=Array.isArray(j.bookings[wk][sid])?j.bookings[wk][sid].slice(0,4):[];
           });
         });
-        if(j.bokad) state.bokad={...state.bokad,...j.bokad};
-        if(j.links && typeof j.links==='object') state.links={...state.links,...j.links};
+        state.bookings=nb;
+        state.bokad=(j.bokad && typeof j.bokad==='object')?{...j.bokad}:{};
+        state.links=(j.links && typeof j.links==='object')?{...j.links}:{};
+        state.custom={};
+        if(j.custom && typeof j.custom==='object'){
+          Object.keys(j.custom).forEach(wk=>{ state.custom[wk]=Array.isArray(j.custom[wk])?j.custom[wk]:[]; });
+        }
         WEEKS.forEach(w=>{
-          if(j.custom&&j.custom[w.id]&&Array.isArray(j.custom[w.id])&&j.custom[w.id].length>0){
-            if(!state.custom[w.id]||state.custom[w.id].length===0) state.custom[w.id]=j.custom[w.id];
-          }
+          if(!state.bookings[w.id]) state.bookings[w.id]={};
+          if(!state.custom[w.id]) state.custom[w.id]=[];
         });
         state.npointLoaded=true;
         saveAllLocal();
