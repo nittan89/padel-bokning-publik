@@ -177,10 +177,10 @@
       <div id="daysRoot"></div>
 
       <div class="add-custom-wrap">
-        <button id="addCustomBtn" class="big-add">+ Lägg till egen tid — gäller bara v34</button>
+        <button id="addCustomBtn" class="big-add">+ Lägg till egen tid</button>
       </div>
 
-      <div class="foot">Öppen för alla med länken • 4/4 grönt • 3/4 gult • v34–v39</div>
+      <div class="foot" id="footRange">Öppen för alla med länken • 4/4 grönt • 3/4 gult</div>
     </div>
 
     <div class="sidecol" id="sideFullDup" style="display:none"></div>
@@ -236,6 +236,9 @@ const WEEKS=[
 ];
 function isoWeekNum(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(x.getUTCDay()||7); x.setUTCDate(x.getUTCDate()+4-day); const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)); return Math.ceil((((x-y)/86400000)+1)/7); }
 const THIS_WEEK_NO=Math.min(Math.max(isoWeekNum(new Date()),34),39);
+// Passerade veckor döljs automatiskt: visa bara veckor fr.o.m. innevarande
+const VISIBLE_WEEKS=WEEKS.filter(w=>w.n>=THIS_WEEK_NO);
+function currentVisibleWeek(){ return (WEEKS.find(x=>x.n===THIS_WEEK_NO)) || VISIBLE_WEEKS[0] || WEEKS[0]; }
 
 const DAYS_FULL=['Måndag','Tisdag','Onsdag','Torsdag','Fredag','Lördag','Söndag'];
 const DAYS_SHORT={'Måndag':'mån','Tisdag':'tis','Onsdag':'ons','Torsdag':'tor','Fredag':'fre','Lördag':'lör','Söndag':'sön'};
@@ -262,7 +265,7 @@ const LS_LASTWRITE='padel-bokning-publik-lastwrite';
 const NPOINT_ID='48f748aa3ac334cb412b';
 const NPOINT_URL='https://api.npoint.io/'+NPOINT_ID;
 
-let state={ weekId:'v34', name:'', bookings:{}, custom:{}, bokad:{}, links:{}, npointLoaded:false };
+let state={ weekId:currentVisibleWeek().id, name:'', bookings:{}, custom:{}, bokad:{}, links:{}, npointLoaded:false };
 
 function initState(){
   state.name=(safeGet(LS_NAME)||'').slice(0,40);
@@ -275,7 +278,9 @@ function initState(){
   });
   const params=new URLSearchParams(location.search);
   const w=params.get('v');
-  if(w && WEEKS.find(x=>x.id===w)) state.weekId=w;
+  // Visa bara synliga (ej passerade) veckor: ?v= på gömd vecka → hoppa till nuvarande
+  if(w && VISIBLE_WEEKS.find(x=>x.id===w)) state.weekId=w;
+  else if(!VISIBLE_WEEKS.find(x=>x.id===state.weekId)) state.weekId=currentVisibleWeek().id;
 }
 function saveAllLocal(){
   safeSet(LS_NAME,(state.name||'').slice(0,40));
@@ -336,11 +341,11 @@ async function loadFromNpoint(){
     }
   }catch(e){}
 }
-function currentWeek(){ return WEEKS.find(w=>w.id===state.weekId)||WEEKS[0]; }
+function currentWeek(){ const w=WEEKS.find(x=>x.id===state.weekId); return (w&&w.n>=THIS_WEEK_NO)?w:currentVisibleWeek(); }
 function renderWeekNav(){
   const nav=document.getElementById('weekNav'); nav.innerHTML='';
   const tw=WEEKS.find(x=>x.n===THIS_WEEK_NO);
-  WEEKS.forEach(w=>{
+  VISIBLE_WEEKS.forEach(w=>{
     const b=document.createElement('button');
     b.className='wbtn'+(w.id===state.weekId?' active':'');
     if(tw&&w.id===tw.id){ b.innerHTML='v'+w.n+'<span class="now-dot" title="Aktuell vecka"></span>'; }
@@ -366,7 +371,8 @@ function render(){
       else if(tw){ badge.style.display='inline-flex'; badge.classList.add('other'); badge.textContent='Aktuell vecka är v'+tw.n; }
       else badge.style.display='none';
     }
-    document.getElementById('addCustomBtn').textContent='+ Lägg till egen tid — gäller bara '+wk.id;
+    document.getElementById('addCustomBtn').textContent='+ Lägg till egen tid — gäller '+wk.id;
+    const fr=document.getElementById('footRange'); if(fr) fr.textContent='Öppen för alla med länken • 4/4 grönt • 3/4 gult • v'+THIS_WEEK_NO+'–v39';
     renderWeekNav();
     renderName();
     renderFull();
