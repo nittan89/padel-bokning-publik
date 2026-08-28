@@ -352,10 +352,18 @@ async function loadFromNpoint(){
       let hasData=false;
       Object.keys(j.bookings).forEach(wk=>{ const s=j.bookings[wk]; if(s && Object.keys(s).length>0) hasData=true; });
       if(hasData){
-        // Stale-write-skydd: om vi själva postat nyare än serverns 'updated' (npoint-cachat), hoppa över
+        // Stale-write-skydd: om vi själva postat nyare än serverns 'updated' (npoint-cachat), hoppa över bookings-uppdatering men ta ändå bokad/links
         let remoteUpdated=0; try{ remoteUpdated=Date.parse(j.updated||'')||0; }catch(e2){}
         let localLastWrite=0; try{ localLastWrite=Date.parse(localStorage.getItem(LS_LASTWRITE)||'')||0; }catch(e3){}
-        if(remoteUpdated && localLastWrite && localLastWrite > remoteUpdated + 30000) return;
+        const isStaleWrite = !!(remoteUpdated && localLastWrite && localLastWrite > remoteUpdated + 30000);
+        if(isStaleWrite){
+          // Uppdatera bara bokad/links, behåll lokala bookings och försök synka igen
+          if(j.bokad && typeof j.bokad==='object'){ state.bokad={...state.bokad, ...j.bokad}; }
+          if(j.links && typeof j.links==='object'){ state.links={...state.links, ...j.links}; }
+          saveAllLocal(); render();
+          setTimeout(()=>syncToNpoint(), 1500);
+          return;
+        }
         // Bevara egna bokningar som ev. inte hunnit synkas (egen POST som failat)
         const myName=(state.name||'').trim();
         const myLower=myName.toLowerCase();
