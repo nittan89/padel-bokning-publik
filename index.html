@@ -73,6 +73,10 @@
   .btn-primary{background:var(--text);color:var(--bg);border:1px solid var(--text);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
   .btn-primary:active{transform:translateY(1px)}
   .name-hint{font-size:12px;color:var(--muted2);margin:8px 2px 0;line-height:1.4}
+  .known-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+  .known-chip{background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:13px;font-weight:500;padding:6px 10px;border-radius:999px;cursor:pointer;user-select:none}
+  .known-chip:hover{border-color:var(--blue-acc)}
+  .known-chip.active{border-color:var(--blue-acc);box-shadow:0 0 0 2px rgba(111,176,255,.18);background:rgba(111,176,255,.12)}
 
   .section-title{font-family:"Sora",sans-serif;font-weight:700;font-size:18px;margin:28px 0 12px;display:flex;align-items:center;gap:10px}
   .count-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--bg2);border:1px solid var(--border);color:var(--muted)}
@@ -166,6 +170,7 @@
           <input id="nameInput" class="name-input" maxlength="40" placeholder="T.ex. Johan" autocomplete="name" />
           <button id="saveNameBtn" class="btn-primary">Spara</button>
         </div>
+        <div id="knownNamesWrap" style="display:none;margin-top:10px"><div style="font-size:12px;color:var(--muted2);margin:0 2px 6px">Tidigare spelare – klicka för att välja</div><div id="knownNamesRow" class="known-list"></div></div>
         <div class="name-saved" id="nameSavedRow" style="display:none"><span class="ok">✓</span><span>Sparat som <b id="nameSavedName"></b></span><button id="editNameBtn" class="btn-mini" style="margin-left:auto">Ändra</button></div>
         <div class="name-hint">Sparas lokalt i din enhet — ingen inloggning. Öppen för alla med länken.</div>
       </div>
@@ -289,6 +294,53 @@ function saveAllLocal(){
   safeJsonSet(LS_CUSTOM,state.custom);
   safeJsonSet(LS_BOKAD,state.bokad);
 }
+
+function getKnownNames(){
+  const map=new Map();
+  try{
+    Object.values(state.bookings||{}).forEach(wk=>{
+      Object.values(wk||{}).forEach(arr=>{
+        (arr||[]).forEach(n=>{
+          const t=String(n).trim(); if(!t) return;
+          const k=t.toLowerCase();
+          if(!map.has(k)) map.set(k,t);
+        });
+      });
+    });
+  }catch(e){}
+  return Array.from(map.values()).sort((a,b)=>a.localeCompare(b,'sv'));
+}
+function canonicalName(input){
+  const t=String(input||'').trim(); if(!t) return '';
+  const k=t.toLowerCase();
+  const known=getKnownNames();
+  for(const kn of known){ if(kn.toLowerCase()===k) return kn; }
+  // collapse multiple spaces, keep casing as typed but normalized
+  return t.replace(/\s+/g,' ').slice(0,40);
+}
+function renderKnownNames(filterText){
+  const wrap=document.getElementById('knownNamesWrap');
+  const row=document.getElementById('knownNamesRow');
+  if(!wrap||!row) return;
+  const known=getKnownNames();
+  if(!known.length || (state.name && !editingName)){ wrap.style.display='none'; return; }
+  const f=(filterText||'').trim().toLowerCase();
+  let list=known;
+  if(f) list=known.filter(n=>n.toLowerCase().includes(f));
+  // limit to 12 for UI
+  list=list.slice(0,12);
+  if(!list.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  row.innerHTML=list.map(n=>`<button type="button" class="known-chip ${state.name===n?'active':''}" data-n="${n.replace(/"/g,'&quot;')}">${n.replace(/</g,'&lt;')}</button>`).join('');
+  row.querySelectorAll('button').forEach(btn=>{
+    btn.onclick=()=>{
+      const nm=btn.getAttribute('data-n');
+      document.getElementById('nameInput').value=nm;
+      state.name=nm; saveAllLocal(); editingName=false; render();
+    };
+  });
+}
+
 function isAuditHost(){
   try{ const h=location.hostname||''; return h.includes('metaai') || location.href.includes('/spaces/v2/') || h.includes('audit'); }catch(e){ return false; }
 }
@@ -470,11 +522,13 @@ function renderName(){
   const inp=document.getElementById('nameInput');
   if(state.name&&!editingName){
     if(editRow) editRow.style.display='none';
+    const kw=document.getElementById('knownNamesWrap'); if(kw) kw.style.display='none';
     if(savedRow){ savedRow.style.display='flex'; document.getElementById('nameSavedName').textContent=state.name; }
   }else{
     if(editRow) editRow.style.display='flex';
     if(savedRow) savedRow.style.display='none';
     if(document.activeElement!==inp) inp.value=state.name;
+    renderKnownNames(inp?inp.value:'');
   }
 }
 let editingName=false;
@@ -596,7 +650,9 @@ document.getElementById('modalSave').onclick=()=>{
 };
 
 document.getElementById('saveNameBtn').onclick=()=>{
-  const v=(document.getElementById('nameInput').value||'').trim().slice(0,40);
+  const raw=(document.getElementById('nameInput').value||'').trim();
+  const v=canonicalName(raw);
+  if(!v){ document.getElementById('nameInput').focus(); return; }
   state.name=v; saveAllLocal(); editingName=false;
   const b=document.getElementById('saveNameBtn');
   b.textContent=v?'Sparat ✓':'OK';
@@ -604,6 +660,7 @@ document.getElementById('saveNameBtn').onclick=()=>{
 };
 document.getElementById('editNameBtn').onclick=()=>{ editingName=true; render(); const inp=document.getElementById('nameInput'); inp.focus(); inp.select(); };
 document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('saveNameBtn').click(); });
+try{ document.getElementById('nameInput').addEventListener('input', e=>{ renderKnownNames(e.target.value); }); }catch(e2){}
 document.getElementById('addCustomBtn').onclick=()=>openModal('Fredag');
 
 (function boot(){
