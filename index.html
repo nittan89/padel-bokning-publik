@@ -150,6 +150,7 @@
 </div>
 
 <div id="loading">Laddar Padel Bokning…</div>
+<div id="syncStatus" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#b45309;color:white;padding:6px 12px;border-radius:999px;font-size:12px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>
 
 <div id="app" style="display:none">
   <div class="week-sticky"><div class="week-inner"><div class="week-nav" id="weekNav"></div></div></div>
@@ -291,14 +292,54 @@ function saveAllLocal(){
 function isAuditHost(){
   try{ const h=location.hostname||''; return h.includes('metaai') || location.href.includes('/spaces/v2/') || h.includes('audit'); }catch(e){ return false; }
 }
+const LS_PENDING='padel-bokning-publik-pending-sync';
+let _syncInProgress=false;
+let _pendingSync=false;
+function _delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
 async function syncToNpoint(){
   if(isAuditHost()) return;
-  try{
-    const payload={bookings:state.bookings,bokad:state.bokad,custom:state.custom,links:state.links||{},updated:new Date().toISOString()};
-    try{ localStorage.setItem(LS_LASTWRITE, payload.updated); }catch(e2){}
-    const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),3000);
-    await fetch(NPOINT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
-  }catch(e){}
+  if(_syncInProgress){ _pendingSync=true; return; }
+  _syncInProgress=true;
+  const payload={bookings:state.bookings,bokad:state.bokad,custom:state.custom,links:state.links||{},updated:new Date().toISOString()};
+  try{ localStorage.setItem(LS_LASTWRITE, payload.updated); }catch(e2){}
+  let success=false;
+  for(let attempt=0; attempt<3 && !success; attempt++){
+    try{
+      const ctrl=new AbortController(); 
+      const to=3000+attempt*2500;
+      const t=setTimeout(()=>ctrl.abort(),to);
+      await fetch(NPOINT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
+      clearTimeout(t);
+      success=true;
+      try{ localStorage.removeItem(LS_PENDING); }catch(e){}
+      _pendingSync=false;
+    }catch(e){
+      if(attempt<2) await _delay(1200*(attempt+1));
+    }
+  }
+  if(!success){
+    try{ localStorage.setItem(LS_PENDING, JSON.stringify(payload)); }catch(e){}
+    // schema bakgrunds-retry
+    setTimeout(()=>{ _syncInProgress=false; syncToNpoint(); }, 6000);
+    try{
+      // liten visuell varning om det finns plats för det
+      const el=document.getElementById('syncStatus');
+      if(el){ el.textContent='⚠️ Synk misslyckades – försöker igen...'; el.style.display='block'; }
+    }catch(e){}
+  } else {
+    try{
+      const el=document.getElementById('syncStatus');
+      if(el){ el.textContent=''; el.style.display='none'; }
+    }catch(e){}
+    if(_pendingSync){
+      _pendingSync=false;
+      _syncInProgress=false;
+      syncToNpoint();
+      return;
+    }
+  }
+  _syncInProgress=false;
+  if(_pendingSync){ _pendingSync=false; syncToNpoint(); }
 }
 async function loadFromNpoint(){
   if(isAuditHost()) return;
@@ -315,6 +356,20 @@ async function loadFromNpoint(){
         let remoteUpdated=0; try{ remoteUpdated=Date.parse(j.updated||'')||0; }catch(e2){}
         let localLastWrite=0; try{ localLastWrite=Date.parse(localStorage.getItem(LS_LASTWRITE)||'')||0; }catch(e3){}
         if(remoteUpdated && localLastWrite && localLastWrite > remoteUpdated + 30000) return;
+        // Bevara egna bokningar som ev. inte hunnit synkas (egen POST som failat)
+        const myName=(state.name||'').trim();
+        const myLower=myName.toLowerCase();
+        const myLocalSlots=[];
+        if(myName){
+          Object.keys(state.bookings).forEach(wk=>{
+            Object.keys(state.bookings[wk]||{}).forEach(sid=>{
+              const arr=state.bookings[wk][sid]||[];
+              if(arr.some(n=> (n||'').toLowerCase()===myLower)){
+                myLocalSlots.push({wk,sid});
+              }
+            });
+          });
+        }
         // Servern är sanningen: ERSÄTT helt så att avbokningar propagerar (ingen union-merge!)
         const nb={};
         Object.keys(j.bookings).forEach(wk=>{
@@ -323,6 +378,26 @@ async function loadFromNpoint(){
             nb[wk][sid]=Array.isArray(j.bookings[wk][sid])?j.bookings[wk][sid].slice(0,4):[];
           });
         });
+        // Lägg tillbaka mina egna om servern saknar dem (missad POST)
+        if(myName && myLocalSlots.length){
+          let needResync=false;
+          myLocalSlots.forEach(({wk,sid})=>{
+            if(!nb[wk]) nb[wk]={};
+            const arr=nb[wk][sid]||[];
+            const hasMe=arr.some(n=> (n||'').toLowerCase()===myLower);
+            if(!hasMe && arr.length<4){
+              arr.push(myName);
+              nb[wk][sid]=arr;
+              needResync=true;
+            }
+          });
+          if(needResync){
+            // behåll lokalt och försök synka igen snart
+            state.bookings=nb;
+            saveAllLocal();
+            setTimeout(()=>syncToNpoint(), 1200);
+          }
+        }
         state.bookings=nb;
         state.bokad=(j.bokad && typeof j.bokad==='object')?{...j.bokad}:{};
         state.links=(j.links && typeof j.links==='object')?{...j.links}:{};
@@ -527,6 +602,11 @@ document.getElementById('addCustomBtn').onclick=()=>openModal('Fredag');
   try{
     initState(); render();
     setTimeout(loadFromNpoint,150);
+    try{
+      window.addEventListener('online', ()=>{ try{ const pend=localStorage.getItem(LS_PENDING); if(pend) syncToNpoint(); }catch(e){} });
+      document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ try{ const pend=localStorage.getItem(LS_PENDING); if(pend) syncToNpoint(); }catch(e){} } });
+    }catch(e){}
+
   }catch(e){
     const l=document.getElementById('loading');
     if(l) l.innerHTML='<div style="padding:20px;text-align:center">Kunde inte ladda — försök ladda om.<br><button class="retry" onclick="location.reload()" style="margin-top:12px;background:#fff;color:#0C1B33;border:none;padding:10px 14px;border-radius:10px;font-weight:700">Ladda om</button></div>';
