@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0C1B33" />
+<!-- rebuild 2026-08-21 v10 fresh -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<title>Padel Bokning Publik</title>
+<style>
+  :root{
+    --bg:#0C1B33;
+    --bg2:#132749;
+    --bg3:#1B355F;
+    --card:#12294E;
+    --card2:#19335E;
+    --border:#28456F;
+    --border2:#345D92;
+    --text:#FFFFFF;
+    --muted:#C8D6F0;
+    --muted2:#A6BBDC;
+    --green:#19C37D;
+    --green-bg:#113828;
+    --green-border:#1E7A54;
+    --yellow:#FFD65A;
+    --yellow-bg:#443508;
+    --yellow-border:#8A6D1E;
+    --blue-acc:#6FB0FF;
+    --red:#FF6B7D;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh}
+  button{font:inherit}
+  .shell{width:100%;max-width:480px;margin:0 auto;padding:0 16px 120px}
+  @media(min-width:720px){.shell{max-width:780px;padding:0 24px 120px}}
+  @media(min-width:1100px){.shell{max-width:1080px;padding:0 32px 120px;display:grid;grid-template-columns:1fr 340px;gap:32px;align-items:start}}
+  @media(min-width:1100px){.maincol{min-width:0}.sidecol{position:sticky;top:84px}}
+
+  .week-sticky{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);margin:0 -16px;padding:0 16px}
+  @media(min-width:720px){.week-sticky{margin:0 -24px;padding:0 24px}}
+  @media(min-width:1100px){.week-sticky{margin:0 -32px;padding:0 32px;grid-column:1 / -1}}
+  .week-inner{max-width:480px;margin:0 auto;padding:12px 0 12px}
+  @media(min-width:720px){.week-inner{max-width:780px}}
+  @media(min-width:1100px){.week-inner{max-width:1080px}}
+  .week-nav{display:flex;flex-wrap:wrap;gap:8px;padding:4px 2px 4px 2px}
+  .wbtn{flex:0 0 auto;border:1px solid var(--border);background:var(--bg2);color:var(--muted);padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+  .wbtn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .wbtn:hover{border-color:var(--border2);color:var(--text)}
+  .wbtn .now-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#19C37D;margin-left:7px;box-shadow:0 0 0 3px rgba(25,195,125,.25);vertical-align:1px}
+  .now-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px;border-radius:999px;background:rgba(25,195,125,.15);color:#19C37D;border:1px solid rgba(25,195,125,.45);margin:0 0 8px}
+  .now-badge.other{background:rgba(255,214,90,.10);color:#FFD65A;border-color:rgba(255,214,90,.35)}
+  .name-saved{display:flex;align-items:center;gap:10px;font-size:14px}
+  .name-saved .ok{color:#19C37D;font-weight:900}
+  .btn-mini{background:transparent;color:var(--muted);border:1px solid var(--border);padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+  .btn-mini:hover{color:var(--text);border-color:var(--border2)}
+
+  .week-title{font-family:"Sora",Inter,sans-serif;font-weight:700;font-size:28px;line-height:1.1;letter-spacing:-0.02em;margin:22px 0 8px}
+  @media(min-width:720px){.week-title{font-size:32px;margin:26px 0 10px}}
+  .week-sub{color:var(--muted);font-size:14px;margin:0 0 18px;line-height:1.5}
+  .week-sub strong{color:var(--text);font-weight:600}
+
+  .name-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 14px 12px;margin:16px 0 20px}
+  .name-label{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 8px}
+  .name-row{display:flex;gap:8px}
+  .name-input{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:10px;padding:10px 12px;font-size:15px;outline:none}
+  .name-input::placeholder{color:var(--muted2)}
+  .name-input:focus{border-color:var(--blue-acc);box-shadow:0 0 0 3px rgba(111,176,255,.22)}
+  .btn-primary{background:var(--text);color:var(--bg);border:1px solid var(--text);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
+  .btn-primary:active{transform:translateY(1px)}
+  .name-hint{font-size:12px;color:var(--muted2);margin:8px 2px 0;line-height:1.4}
+  .known-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+  .known-chip{background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:13px;font-weight:500;padding:6px 10px;border-radius:999px;cursor:pointer;user-select:none}
+  .known-chip:hover{border-color:var(--blue-acc)}
+  .known-chip.active{border-color:var(--blue-acc);box-shadow:0 0 0 2px rgba(111,176,255,.18);background:rgba(111,176,255,.12)}
+
+  .section-title{font-family:"Sora",sans-serif;font-weight:700;font-size:18px;margin:28px 0 12px;display:flex;align-items:center;gap:10px}
+  .count-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--bg2);border:1px solid var(--border);color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .empty-top{padding:18px 16px;color:var(--muted);font-size:14px;text-align:center}
+
+  .full-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .full-item:last-child{border-bottom:none}
+  .full-left{display:flex;align-items:center;gap:10px;min-width:0}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:0 0 8px;box-shadow:0 0 0 3px rgba(25,195,125,.22)}
+  .full-label{font-weight:600;font-size:14px;white-space:nowrap}
+  .full-meta{font-size:12px;color:var(--muted2)}
+  .toggle{border:1px solid var(--border);background:var(--bg2);color:var(--muted);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer}
+  .toggle.on{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+  .badge-44{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+
+  .day-block{margin:22px 0 0}
+  .day-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 2px 10px}
+  .day-name{font-family:"Sora",sans-serif;font-weight:700;font-size:18px;letter-spacing:-.01em}
+  .day-count{font-size:12px;color:var(--muted2)}
+  .slots{display:grid;gap:10px}
+  .match-link{display:inline-block;font-size:12.5px;font-weight:600;color:var(--blue-acc);text-decoration:none;border:1px solid rgba(90,160,255,.35);border-radius:999px;padding:3px 10px;margin-top:2px}
+  .match-link:hover,.match-link:active{text-decoration:underline;filter:brightness(1.15)}
+
+  .slot{position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 12px 11px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
+  .slot.full{border-color:var(--green-border);background:linear-gradient(0deg, rgba(25,195,125,.09), rgba(25,195,125,.09)), var(--card)}
+  .slot.almost{border-color:var(--yellow-border);background:linear-gradient(0deg, rgba(255,214,90,.12), rgba(255,214,90,.12)), var(--card)}
+  .slot-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .slot-time{font-weight:700;font-size:14px;letter-spacing:.01em;display:flex;align-items:center;gap:8px}
+  .pill{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--muted)}
+  .pill.green{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+  .pill.yellow{background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-border)}
+  .names{display:flex;flex-wrap:wrap;gap:6px}
+  .name-chip{background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:500;padding:5px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;max-width:100%}
+  .name-chip.me{border-color:var(--blue-acc);box-shadow:0 0 0 2px rgba(111,176,255,.18)}
+  .actions{display:flex;gap:8px}
+  .btn-book{flex:1;background:var(--text);color:var(--bg);border:1px solid var(--text);padding:9px 12px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer}
+  .btn-book:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);padding:9px 12px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer}
+  .btn-ghost:hover{color:var(--text);border-color:var(--border2)}
+  .hint-fyll{font-size:11px;color:var(--yellow);font-weight:600}
+
+  .empty-day{background:var(--bg2);border:1px dashed var(--border2);border-radius:10px;padding:14px;text-align:center;color:var(--muted);font-size:13px}
+  .empty-day .btn-add{margin-top:8px}
+  .btn-add{border:1px dashed var(--border2);background:transparent;color:var(--muted);padding:8px 12px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn-add:hover{color:var(--text);border-color:var(--text);border-style:solid}
+  .add-custom-wrap{margin-top:24px;text-align:center}
+  .big-add{width:100%;border:1px solid var(--border2);background:var(--bg2);color:var(--text);padding:12px 14px;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer}
+  .big-add:hover{border-color:var(--text)}
+  .foot{margin-top:36px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted2);font-size:12px;line-height:1.5}
+
+  #loading{padding:28px 20px;text-align:center;color:var(--text);font-weight:700;font-size:16px;background:var(--bg)}
+  #error-root{display:none;padding:20px;max-width:560px;margin:40px auto;background:var(--card);border:1px solid var(--red);border-radius:12px;color:var(--text)}
+  #error-root h2{margin:0 0 8px;font-family:Sora,sans-serif}
+  #error-root pre{white-space:pre-wrap;background:var(--bg);border:1px solid var(--border);padding:10px;border-radius:10px;color:var(--muted);font-size:12px;overflow:auto}
+  .retry{margin-top:12px;background:var(--text);color:var(--bg);border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+
+  /* Modal */
+  #customModal{display:none;position:fixed;inset:0;z-index:60;background:rgba(0,8,20,.66);backdrop-filter:none;align-items:center;justify-content:center;padding:16px}
+  #customModal.open{display:flex}
+  .modal-card{width:100%;max-width:360px;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:16px}
+  .modal-title{font-family:Sora,sans-serif;font-weight:700;font-size:16px;margin:0 0 8px}
+  .modal-sub{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.4}
+  .modal-row{display:flex;gap:8px;margin-top:12px}
+  .modal-input{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:10px;padding:10px 12px;font-size:14px}
+  .modal-input:focus{outline:none;border-color:var(--blue-acc);box-shadow:0 0 0 3px rgba(111,176,255,.22)}
+</style>
+</head>
+<body>
+<div id="error-root" role="alert">
+  <h2>Något gick fel</h2>
+  <p style="color:var(--muted);margin:0 0 10px">Sidan kraschade, men dina bokningar är sparade lokalt.</p>
+  <pre id="error-pre"></pre>
+  <button class="retry" onclick="location.reload()">Ladda om sidan</button>
+</div>
+
+<div id="loading">Laddar Padel Bokning…</div>
+<div id="syncStatus" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#b45309;color:white;padding:6px 12px;border-radius:999px;font-size:12px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>
+
+<div id="app" style="display:none">
+  <div class="week-sticky"><div class="week-inner"><div class="week-nav" id="weekNav"></div></div></div>
+
+  <div class="shell">
+    <div class="maincol">
+      <h1 class="week-title" id="weekTitle">Vecka 34 • 17-23 aug</h1>
+      <div id="nowBadge" class="now-badge" style="display:none">● Denna vecka</div>
+
+      <div class="name-box">
+        <div class="name-label">Vad heter du?</div>
+        <div class="name-row" id="nameEditRow">
+          <input id="nameInput" class="name-input" maxlength="40" placeholder="T.ex. Johan" autocomplete="name" />
+          <button id="saveNameBtn" class="btn-primary">Spara</button>
+        </div>
+        <div id="knownNamesWrap" style="display:none;margin-top:10px"><div style="font-size:12px;color:var(--muted2);margin:0 2px 6px">Tidigare spelare – klicka för att välja</div><div id="knownNamesRow" class="known-list"></div></div>
+        <div class="name-saved" id="nameSavedRow" style="display:none"><span class="ok">✓</span><span>Sparat som <b id="nameSavedName"></b></span><button id="editNameBtn" class="btn-mini" style="margin-left:auto">Ändra</button></div>
+        <div class="name-hint">Sparas lokalt i din enhet — ingen inloggning. Öppen för alla med länken.</div>
+      </div>
+
+      <div id="fullBox">
+        <div class="section-title">Fulla matcher <span class="count-badge" id="fullCount">0</span></div>
+        <div class="card" id="fullList"><div class="empty-top">Inga fulla matcher ännu — boka 4/4 så dyker de upp här.</div></div>
+      </div>
+
+      <div id="daysRoot"></div>
+
+      <div class="add-custom-wrap">
+        <button id="addCustomBtn" class="big-add">+ Lägg till egen tid</button>
+      </div>
+
+      <div class="foot" id="footRange">Öppen för alla med länken • 4/4 grönt • 3/4 gult</div>
+    </div>
+
+    <div class="sidecol" id="sideFullDup" style="display:none"></div>
+  </div>
+</div>
+
+<div id="customModal" aria-modal="true" role="dialog">
+  <div class="modal-card">
+    <div class="modal-title" id="modalTitle">Lägg till egen tid</div>
+    <p class="modal-sub" id="modalSub">Gäller bara denna vecka.</p>
+    <label style="font-size:12px;color:var(--muted2)">Dag</label>
+    <select id="modalDay" class="modal-input" style="margin:6px 0 10px">
+      <option>Måndag</option><option>Tisdag</option><option>Onsdag</option><option>Torsdag</option><option>Fredag</option><option>Lördag</option><option>Söndag</option>
+    </select>
+    <label style="font-size:12px;color:var(--muted2)">Tid HH.MM</label>
+    <input id="modalTime" class="modal-input" placeholder="16.30" inputmode="numeric" />
+    <div class="modal-row">
+      <button id="modalCancel" class="btn-ghost" style="flex:1">Avbryt</button>
+      <button id="modalSave" class="btn-primary" style="flex:1">Lägg till</button>
+    </div>
+    <div id="modalErr" style="display:none;margin-top:10px;color:var(--red);font-size:12px"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const root=document.getElementById('error-root');
+  const pre=document.getElementById('error-pre');
+  function showErr(msg, stack){
+    const l=document.getElementById('loading'); if(l) l.style.display='none';
+    const a=document.getElementById('app'); if(a) a.style.display='none';
+    root.style.display='block';
+    pre.textContent=(msg||'Okänt fel')+(stack?'\n\n'+stack:'');
+  }
+  window.addEventListener('error', e=>{ showErr(e.message, e.error&&e.error.stack); });
+  window.addEventListener('unhandledrejection', e=>{ showErr('Fel: '+(e.reason&&e.reason.message||e.reason), e.reason&&e.reason.stack); });
+  window.__showAppError=showErr;
+})();
+
+const memFallback={};
+function safeGet(k){ try{ const v=localStorage.getItem(k); return v; }catch(e){ return memFallback[k]??null; } }
+function safeSet(k,v){ try{ localStorage.setItem(k,v); memFallback[k]=v; return true; }catch(e){ memFallback[k]=v; return false; } }
+function safeJsonGet(k,def){ try{ const r=safeGet(k); if(!r) return def; return JSON.parse(r); }catch(e){ return def; } }
+function safeJsonSet(k,o){ try{ safeSet(k, JSON.stringify(o)); }catch(e){} }
+
+const WEEKS=[
+  {id:'v34', n:34, label:'Vecka 34 • 17-23 aug', range:'17-23 aug'},
+  {id:'v35', n:35, label:'Vecka 35 • 24-30 aug', range:'24-30 aug'},
+  {id:'v36', n:36, label:'Vecka 36 • 31 aug-6 sep', range:'31 aug-6 sep'},
+  {id:'v37', n:37, label:'Vecka 37 • 7-13 sep', range:'7-13 sep'},
+  {id:'v38', n:38, label:'Vecka 38 • 14-20 sep', range:'14-20 sep'},
+  {id:'v39', n:39, label:'Vecka 39 • 21-27 sep', range:'21-27 sep'},
+];
+function isoWeekNum(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(x.getUTCDay()||7); x.setUTCDate(x.getUTCDate()+4-day); const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)); return Math.ceil((((x-y)/86400000)+1)/7); }
+const THIS_WEEK_NO=Math.min(Math.max(isoWeekNum(new Date()),34),39);
+// Passerade veckor döljs automatiskt: visa bara veckor fr.o.m. innevarande
+const VISIBLE_WEEKS=WEEKS.filter(w=>w.n>=THIS_WEEK_NO);
+function currentVisibleWeek(){ return (WEEKS.find(x=>x.n===THIS_WEEK_NO)) || VISIBLE_WEEKS[0] || WEEKS[0]; }
+
+const DAYS_FULL=['Måndag','Tisdag','Onsdag','Torsdag','Fredag','Lördag','Söndag'];
+const DAYS_SHORT={'Måndag':'mån','Tisdag':'tis','Onsdag':'ons','Torsdag':'tor','Fredag':'fre','Lördag':'lör','Söndag':'sön'};
+
+const STD_SLOTS=[
+  {day:'Måndag', time:'16.30', id:'mon-1630', short:'mån 16.30'},
+  {day:'Måndag', time:'19.00', id:'mon-1900', short:'mån 19.00'},
+  {day:'Tisdag', time:'16.30', id:'tue-1630', short:'tis 16.30'},
+  {day:'Tisdag', time:'19.00', id:'tue-1900', short:'tis 19.00'},
+  {day:'Onsdag', time:'16.30', id:'wed-1630', short:'ons 16.30'},
+  {day:'Onsdag', time:'19.00', id:'wed-1900', short:'ons 19.00'},
+  {day:'Torsdag', time:'16.30', id:'thu-1630', short:'tor 16.30'},
+  {day:'Torsdag', time:'19.00', id:'thu-1900', short:'tor 19.00'},
+  {day:'Lördag', time:'09.30', id:'sat-0930', short:'lör 09.30'},
+];
+
+const LS_NAME='padel-bokning-publik-namn';
+const LS_BOOK='padel-bokning-publik-bookings';
+const LS_CUSTOM='padel-bokning-publik-custom';
+const LS_BOKAD='padel-bokning-publik-bokad';
+const LS_LASTWRITE='padel-bokning-publik-lastwrite';
+
+// npoint - best effort, skip in audit iframe to avoid 404 console noise
+const NPOINT_ID='48f748aa3ac334cb412b';
+const NPOINT_URL='https://api.npoint.io/'+NPOINT_ID;
+
+let state={ weekId:currentVisibleWeek().id, name:'', bookings:{}, custom:{}, bokad:{}, links:{}, npointLoaded:false };
+
+function initState(){
+  state.name=(safeGet(LS_NAME)||'').slice(0,40);
+  state.bookings=safeJsonGet(LS_BOOK,{});
+  state.custom=safeJsonGet(LS_CUSTOM,{});
+  state.bokad=safeJsonGet(LS_BOKAD,{});
+  WEEKS.forEach(w=>{
+    if(!state.bookings[w.id]) state.bookings[w.id]={};
+    if(!state.custom[w.id]) state.custom[w.id]=[];
+  });
+  const params=new URLSearchParams(location.search);
+  const w=params.get('v');
+  // Visa bara synliga (ej passerade) veckor: ?v= på gömd vecka → hoppa till nuvarande
+  if(w && VISIBLE_WEEKS.find(x=>x.id===w)) state.weekId=w;
+  else if(!VISIBLE_WEEKS.find(x=>x.id===state.weekId)) state.weekId=currentVisibleWeek().id;
+}
+function saveAllLocal(){
+  safeSet(LS_NAME,(state.name||'').slice(0,40));
+  safeJsonSet(LS_BOOK,state.bookings);
+  safeJsonSet(LS_CUSTOM,state.custom);
+  safeJsonSet(LS_BOKAD,state.bokad);
+}
+
+function getKnownNames(){
+  const map=new Map();
+  try{
+    Object.values(state.bookings||{}).forEach(wk=>{
+      Object.values(wk||{}).forEach(arr=>{
+        (arr||[]).forEach(n=>{
+          const t=String(n).trim(); if(!t) return;
+          const k=t.toLowerCase();
+          if(!map.has(k)) map.set(k,t);
+        });
+      });
+    });
+  }catch(e){}
+  return Array.from(map.values()).sort((a,b)=>a.localeCompare(b,'sv'));
+}
+function canonicalName(input){
+  const t=String(input||'').trim(); if(!t) return '';
+  const k=t.toLowerCase();
+  const known=getKnownNames();
+  for(const kn of known){ if(kn.toLowerCase()===k) return kn; }
+  // collapse multiple spaces, keep casing as typed but normalized
+  return t.replace(/\s+/g,' ').slice(0,40);
+}
+function renderKnownNames(filterText){
+  const wrap=document.getElementById('knownNamesWrap');
+  const row=document.getElementById('knownNamesRow');
+  if(!wrap||!row) return;
+  const known=getKnownNames();
+  if(!known.length || (state.name && !editingName)){ wrap.style.display='none'; return; }
+  const f=(filterText||'').trim().toLowerCase();
+  let list=known;
+  if(f) list=known.filter(n=>n.toLowerCase().includes(f));
+  // limit to 12 for UI
+  list=list.slice(0,12);
+  if(!list.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  row.innerHTML=list.map(n=>`<button type="button" class="known-chip ${state.name===n?'active':''}" data-n="${n.replace(/"/g,'&quot;')}">${n.replace(/</g,'&lt;')}</button>`).join('');
+  row.querySelectorAll('button').forEach(btn=>{
+    btn.onclick=()=>{
+      const nm=btn.getAttribute('data-n');
+      document.getElementById('nameInput').value=nm;
+      state.name=nm; saveAllLocal(); editingName=false; render();
+    };
+  });
+}
+
+function isAuditHost(){
+  try{ const h=location.hostname||''; return h.includes('metaai') || location.href.includes('/spaces/v2/') || h.includes('audit'); }catch(e){ return false; }
+}
+const LS_PENDING='padel-bokning-publik-pending-sync';
+let _syncInProgress=false;
+let _pendingSync=false;
+function _delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function syncToNpoint(){
+  if(isAuditHost()) return;
+  if(_syncInProgress){ _pendingSync=true; return; }
+  _syncInProgress=true;
+  const payload={bookings:state.bookings,bokad:state.bokad,custom:state.custom,links:state.links||{},updated:new Date().toISOString()};
+  try{ localStorage.setItem(LS_LASTWRITE, payload.updated); }catch(e2){}
+  let success=false;
+  for(let attempt=0; attempt<3 && !success; attempt++){
+    try{
+      const ctrl=new AbortController(); 
+      const to=3000+attempt*2500;
+      const t=setTimeout(()=>ctrl.abort(),to);
+      await fetch(NPOINT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
+      clearTimeout(t);
+      success=true;
+      try{ localStorage.removeItem(LS_PENDING); }catch(e){}
+      _pendingSync=false;
+    }catch(e){
+      if(attempt<2) await _delay(1200*(attempt+1));
+    }
+  }
+  if(!success){
+    try{ localStorage.setItem(LS_PENDING, JSON.stringify(payload)); }catch(e){}
+    // schema bakgrunds-retry
+    setTimeout(()=>{ _syncInProgress=false; syncToNpoint(); }, 6000);
+    try{
+      // liten visuell varning om det finns plats för det
+      const el=document.getElementById('syncStatus');
+      if(el){ el.textContent='⚠️ Synk misslyckades – försöker igen...'; el.style.display='block'; }
+    }catch(e){}
+  } else {
+    try{
+      const el=document.getElementById('syncStatus');
+      if(el){ el.textContent=''; el.style.display='none'; }
+    }catch(e){}
+    if(_pendingSync){
+      _pendingSync=false;
+      _syncInProgress=false;
+      syncToNpoint();
+      return;
+    }
+  }
+  _syncInProgress=false;
+  if(_pendingSync){ _pendingSync=false; syncToNpoint(); }
+}
+async function loadFromNpoint(){
+  if(isAuditHost()) return;
+  try{
+    const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),3000);
+    const r=await fetch(NPOINT_URL,{signal:ctrl.signal});
+    if(!r.ok) return;
+    const j=await r.json();
+    if(j && j.bookings && typeof j.bookings==='object'){
+      let hasData=false;
+      Object.keys(j.bookings).forEach(wk=>{ const s=j.bookings[wk]; if(s && Object.keys(s).length>0) hasData=true; });
+      if(hasData){
+        // Stale-write-skydd: om vi själva postat nyare än serverns 'updated' (npoint-cachat), hoppa över bookings-uppdatering men ta ändå bokad/links
+        let remoteUpdated=0; try{ remoteUpdated=Date.parse(j.updated||'')||0; }catch(e2){}
+        let localLastWrite=0; try{ localLastWrite=Date.parse(localStorage.getItem(LS_LASTWRITE)||'')||0; }catch(e3){}
+        const isStaleWrite = !!(remoteUpdated && localLastWrite && localLastWrite > remoteUpdated + 30000);
+        if(isStaleWrite){
+          // Uppdatera bara bokad/links, behåll lokala bookings och försök synka igen
+          if(j.bokad && typeof j.bokad==='object'){ state.bokad={...state.bokad, ...j.bokad}; }
+          if(j.links && typeof j.links==='object'){ state.links={...state.links, ...j.links}; }
+          saveAllLocal(); render();
+          setTimeout(()=>syncToNpoint(), 1500);
+          return;
+        }
+        // Bevara egna bokningar som ev. inte hunnit synkas (egen POST som failat)
+        const myName=(state.name||'').trim();
+        const myLower=myName.toLowerCase();
+        const myLocalSlots=[];
+        if(myName){
+          Object.keys(state.bookings).forEach(wk=>{
+            Object.keys(state.bookings[wk]||{}).forEach(sid=>{
+              const arr=state.bookings[wk][sid]||[];
+              if(arr.some(n=> (n||'').toLowerCase()===myLower)){
+                myLocalSlots.push({wk,sid});
+              }
+            });
+          });
+        }
+        // Servern är sanningen: ERSÄTT helt så att avbokningar propagerar (ingen union-merge!)
+        const nb={};
+        Object.keys(j.bookings).forEach(wk=>{
+          nb[wk]={};
+          Object.keys(j.bookings[wk]).forEach(sid=>{
+            nb[wk][sid]=Array.isArray(j.bookings[wk][sid])?j.bookings[wk][sid].slice(0,4):[];
+          });
+        });
+        // Lägg tillbaka mina egna om servern saknar dem (missad POST)
+        if(myName && myLocalSlots.length){
+          let needResync=false;
+          myLocalSlots.forEach(({wk,sid})=>{
+            if(!nb[wk]) nb[wk]={};
+            const arr=nb[wk][sid]||[];
+            const hasMe=arr.some(n=> (n||'').toLowerCase()===myLower);
+            if(!hasMe && arr.length<4){
+              arr.push(myName);
+              nb[wk][sid]=arr;
+              needResync=true;
+            }
+          });
+          if(needResync){
+            // behåll lokalt och försök synka igen snart
+            state.bookings=nb;
+            saveAllLocal();
+            setTimeout(()=>syncToNpoint(), 1200);
+          }
+        }
+        state.bookings=nb;
+        state.bokad=(j.bokad && typeof j.bokad==='object')?{...j.bokad}:{};
+        state.links=(j.links && typeof j.links==='object')?{...j.links}:{};
+        state.custom={};
+        if(j.custom && typeof j.custom==='object'){
+          Object.keys(j.custom).forEach(wk=>{ state.custom[wk]=Array.isArray(j.custom[wk])?j.custom[wk]:[]; });
+        }
+        WEEKS.forEach(w=>{
+          if(!state.bookings[w.id]) state.bookings[w.id]={};
+          if(!state.custom[w.id]) state.custom[w.id]=[];
+        });
+        state.npointLoaded=true;
+        saveAllLocal();
+        render();
+      }
+    }
+  }catch(e){}
+}
+function currentWeek(){ const w=WEEKS.find(x=>x.id===state.weekId); return (w&&w.n>=THIS_WEEK_NO)?w:currentVisibleWeek(); }
+function renderWeekNav(){
+  const nav=document.getElementById('weekNav'); nav.innerHTML='';
+  const tw=WEEKS.find(x=>x.n===THIS_WEEK_NO);
+  VISIBLE_WEEKS.forEach(w=>{
+    const b=document.createElement('button');
+    b.className='wbtn'+(w.id===state.weekId?' active':'');
+    if(tw&&w.id===tw.id){ b.innerHTML='v'+w.n+'<span class="now-dot" title="Aktuell vecka"></span>'; }
+    else b.textContent='v'+w.n;
+    b.onclick=()=>{ state.weekId=w.id; try{history.replaceState(null,'','?v='+w.id);}catch(e){} render(); saveAllLocal(); };
+    nav.appendChild(b);
+  });
+}
+function getSlotsForDay(day, weekId){
+  const std=STD_SLOTS.filter(s=>s.day===day);
+  const customs=(state.custom[weekId]||[]).filter(c=>c.day===day);
+  return [...std,...customs];
+}
+function countFor(weekId, slotId){ const list=(state.bookings[weekId]&&state.bookings[weekId][slotId])||[]; return list.length; }
+function render(){
+  try{
+    const wk=currentWeek();
+    document.getElementById('weekTitle').textContent=wk.label;
+    const badge=document.getElementById('nowBadge');
+    const tw=WEEKS.find(x=>x.n===THIS_WEEK_NO);
+    if(badge){
+      if(tw&&wk.id===tw.id){ badge.style.display='inline-flex'; badge.classList.remove('other'); badge.textContent='● Denna vecka'; }
+      else if(tw){ badge.style.display='inline-flex'; badge.classList.add('other'); badge.textContent='Aktuell vecka är v'+tw.n; }
+      else badge.style.display='none';
+    }
+    document.getElementById('addCustomBtn').textContent='+ Lägg till egen tid — gäller '+wk.id;
+    const fr=document.getElementById('footRange'); if(fr) fr.textContent='Öppen för alla med länken • 4/4 grönt • 3/4 gult • v'+THIS_WEEK_NO+'–v39';
+    renderWeekNav();
+    renderName();
+    renderFull();
+    renderDays();
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='block';
+  }catch(e){ window.__showAppError&&window.__showAppError(e.message,e.stack); }
+}
+function renderName(){
+  const editRow=document.getElementById('nameEditRow');
+  const savedRow=document.getElementById('nameSavedRow');
+  const inp=document.getElementById('nameInput');
+  if(state.name&&!editingName){
+    if(editRow) editRow.style.display='none';
+    const kw=document.getElementById('knownNamesWrap'); if(kw) kw.style.display='none';
+    if(savedRow){ savedRow.style.display='flex'; document.getElementById('nameSavedName').textContent=state.name; }
+  }else{
+    if(editRow) editRow.style.display='flex';
+    if(savedRow) savedRow.style.display='none';
+    if(document.activeElement!==inp) inp.value=state.name;
+    renderKnownNames(inp?inp.value:'');
+  }
+}
+let editingName=false;
+function renderFull(){
+  const wk=currentWeek().id;
+  const full=[];
+  STD_SLOTS.forEach(s=>{ if(countFor(wk,s.id)===4) full.push(s); });
+  (state.custom[wk]||[]).forEach(c=>{ if(countFor(wk,c.id)===4) full.push(c); });
+  document.getElementById('fullCount').textContent=String(full.length);
+  const list=document.getElementById('fullList');
+  if(full.length===0){ list.innerHTML='<div class="empty-top">Inga fulla matcher ännu — boka 4/4 så dyker de upp här.</div>'; return; }
+  list.innerHTML='';
+  full.forEach(s=>{
+    const row=document.createElement('div'); row.className='full-item';
+    const key=wk+'-'+s.id; const bokad=!!state.bokad[key] || !!((state.links||{})[key]); // matchlänk ⇒ bokad (banan är bokad när matchlänk finns)
+    const names=(state.bookings[wk][s.id]||[]).join(', ');
+    const lu=safeUrl((state.links||{})[key]||'');
+    row.innerHTML=`<div class="full-left"><div class="dot"></div><div><div class="full-label">${s.short} <span class="badge-44">4/4</span></div><div class="full-meta">${esc(names)}</div>${lu?`<div class="full-meta"><a class="match-link" href="${esc(lu)}" target="_blank" rel="noopener">🔗 Matchlänk (Padel Mates)</a></div>`:''}</div></div><button class="toggle ${bokad?'on':''}" data-k="${key}">${bokad?'Bokad':'Ej bokad'}</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.toggle').forEach(btn=>{
+    btn.onclick=()=>{ const k=btn.getAttribute('data-k'); state.bokad[k]=!state.bokad[k]; saveAllLocal(); syncToNpoint(); renderFull(); };
+  });
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function safeUrl(u){ try{ const w=new URL(u,location.origin); return (/^https?:$/.test(w.protocol))?u:''; }catch(e){ return ''; } }
+function renderDays(){
+  const root=document.getElementById('daysRoot'); root.innerHTML='';
+  const wkId=currentWeek().id;
+  DAYS_FULL.forEach(day=>{
+    const block=document.createElement('div'); block.className='day-block';
+    const slots=getSlotsForDay(day,wkId);
+    block.innerHTML=`<div class="day-head"><div class="day-name">${day}</div><div class="day-count">${slots.length?slots.length+' tider':'0 tider'}</div></div>`;
+    const slotsDiv=document.createElement('div'); slotsDiv.className='slots';
+    if(slots.length===0){
+      const empty=document.createElement('div'); empty.className='empty-day';
+      const short=DAYS_SHORT[day]||day.slice(0,3).toLowerCase();
+      empty.innerHTML=`Inga tider – lägg till egen<div><button class="btn-add">+ ${short} …</button></div>`;
+      empty.querySelector('button').onclick=()=>openModal(day);
+      slotsDiv.appendChild(empty);
+    } else {
+      slots.forEach(s=>{
+        const list=(state.bookings[wkId]&&state.bookings[wkId][s.id])||[];
+        const cnt=list.length; const isFull=cnt===4; const isAlmost=cnt===3;
+        const el=document.createElement('div'); el.className='slot'+(isFull?' full':'')+(isAlmost?' almost':'');
+        const hasMe=state.name&&list.includes(state.name);
+        const pillCls=isFull?'pill green':isAlmost?'pill yellow':'pill';
+        el.innerHTML=`
+          <div class="slot-top"><div class="slot-time"><span class="abbr">${s.short}</span></div><div class="${pillCls}">${cnt}/4</div></div>
+          ${list.length?`<div class="names">${list.map(n=>`<span class="name-chip ${n===state.name?'me':''}">${esc(n)} ${n===state.name?'<span style="color:var(--blue-acc)">• du</span>':''}</span>`).join('')}</div>`:`<div style="color:var(--muted2);font-size:12px">Inga bokade ännu</div>`}
+          ${(()=>{const u=safeUrl((state.links||{})[wkId+'-'+s.id]||'');return u?`<a class="match-link" href="${esc(u)}" target="_blank" rel="noopener">🔗 Matchlänk (Padel Mates)</a>`:'';})()}
+          <div class="actions">
+            ${hasMe?`<button class="btn-ghost" style="flex:1">Avboka</button>`:`<button class="btn-book" ${cnt>=4?'disabled':''}>${state.name?'Boka':'Fyll i namn ↑'}</button>`}
+            ${!hasMe&&cnt>0?`<button class="btn-ghost">Ångra</button>`:``}
+          </div>
+          ${!state.name&&!hasMe?`<div class="hint-fyll">Fyll i ditt namn ovanför först</div>`:``}
+        `;
+        const btns=el.querySelectorAll('button');
+        if(hasMe){ btns[0].onclick=()=>unbook(wkId,s.id,state.name); }
+        else {
+          btns[0].onclick=()=>{
+            if(!state.name){ const inp=document.getElementById('nameInput'); inp.focus(); inp.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+            book(wkId,s.id,state.name);
+          };
+          if(btns[1]) btns[1].onclick=()=>{ const arr=state.bookings[wkId][s.id]||[]; if(arr.length){ arr.pop(); saveAllLocal(); syncToNpoint(); render(); } };
+        }
+        slotsDiv.appendChild(el);
+      });
+      const addRow=document.createElement('div'); addRow.style.textAlign='center'; addRow.style.marginTop='6px';
+      const short=DAYS_SHORT[day]||day.slice(0,3).toLowerCase();
+      addRow.innerHTML=`<button class="btn-add">+ ${short} …</button>`;
+      addRow.querySelector('button').onclick=()=>openModal(day);
+      slotsDiv.appendChild(addRow);
+    }
+    block.appendChild(slotsDiv); root.appendChild(block);
+  });
+}
+function book(wkId,slotId,name){
+  if(!state.bookings[wkId]) state.bookings[wkId]={};
+  if(!state.bookings[wkId][slotId]) state.bookings[wkId][slotId]=[];
+  const arr=state.bookings[wkId][slotId];
+  if(arr.length>=4) return; if(arr.includes(name)) return;
+  arr.push(name); saveAllLocal(); syncToNpoint(); render();
+}
+function unbook(wkId,slotId,name){
+  if(!state.bookings[wkId]||!state.bookings[wkId][slotId]) return;
+  state.bookings[wkId][slotId]=state.bookings[wkId][slotId].filter(n=>n!==name);
+  saveAllLocal(); syncToNpoint(); render();
+}
+
+/* Modal for custom time - replaces prompt/alert */
+let modalPresetDay=null;
+function openModal(presetDay){
+  modalPresetDay=presetDay||'Fredag';
+  const m=document.getElementById('customModal');
+  document.getElementById('modalTitle').textContent='Lägg till egen tid';
+  document.getElementById('modalSub').textContent='Gäller bara '+currentWeek().id+' – '+modalPresetDay;
+  document.getElementById('modalDay').value=modalPresetDay;
+  document.getElementById('modalTime').value='';
+  document.getElementById('modalErr').style.display='none';
+  m.classList.add('open');
+  setTimeout(()=>document.getElementById('modalTime').focus(),50);
+}
+function closeModal(){ document.getElementById('customModal').classList.remove('open'); }
+document.getElementById('modalCancel').onclick=closeModal;
+document.getElementById('customModal').addEventListener('click', e=>{ if(e.target.id==='customModal') closeModal(); });
+document.getElementById('modalSave').onclick=()=>{
+  const day=document.getElementById('modalDay').value;
+  const tid=(document.getElementById('modalTime').value||'').trim().replace(':','.').replace(',','.');
+  const errEl=document.getElementById('modalErr');
+  if(!DAYS_FULL.includes(day)){ errEl.textContent='Välj en giltig dag.'; errEl.style.display='block'; return; }
+  if(!/^\d{1,2}\.\d{2}$/.test(tid)){ errEl.textContent='Ogiltigt format – använd HH.MM t.ex. 16.30'; errEl.style.display='block'; return; }
+  const [h,m]=tid.split('.'); const hh=String(h).padStart(2,'0');
+  const short=(DAYS_SHORT[day]||day.slice(0,3).toLowerCase())+' '+hh+'.'+m;
+  const id=day.slice(0,3).toLowerCase()+'-'+hh+m+'-'+Date.now();
+  if(!state.custom[currentWeek().id]) state.custom[currentWeek().id]=[];
+  state.custom[currentWeek().id].push({id,day,time:hh+'.'+m,short});
+  saveAllLocal(); syncToNpoint(); render(); closeModal();
+};
+
+document.getElementById('saveNameBtn').onclick=()=>{
+  const raw=(document.getElementById('nameInput').value||'').trim();
+  const v=canonicalName(raw);
+  if(!v){ document.getElementById('nameInput').focus(); return; }
+  state.name=v; saveAllLocal(); editingName=false;
+  const b=document.getElementById('saveNameBtn');
+  b.textContent=v?'Sparat ✓':'OK';
+  setTimeout(()=>{ b.textContent='Spara'; render(); },450);
+};
+document.getElementById('editNameBtn').onclick=()=>{ editingName=true; render(); const inp=document.getElementById('nameInput'); inp.focus(); inp.select(); };
+document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('saveNameBtn').click(); });
+try{ document.getElementById('nameInput').addEventListener('input', e=>{ renderKnownNames(e.target.value); }); }catch(e2){}
+document.getElementById('addCustomBtn').onclick=()=>openModal('Fredag');
+
+(function boot(){
+  try{
+    initState(); render();
+    setTimeout(loadFromNpoint,150);
+    try{
+      window.addEventListener('online', ()=>{ try{ const pend=localStorage.getItem(LS_PENDING); if(pend) syncToNpoint(); }catch(e){} });
+      document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ try{ const pend=localStorage.getItem(LS_PENDING); if(pend) syncToNpoint(); }catch(e){} } });
+    }catch(e){}
+
+  }catch(e){
+    const l=document.getElementById('loading');
+    if(l) l.innerHTML='<div style="padding:20px;text-align:center">Kunde inte ladda — försök ladda om.<br><button class="retry" onclick="location.reload()" style="margin-top:12px;background:#fff;color:#0C1B33;border:none;padding:10px 14px;border-radius:10px;font-weight:700">Ladda om</button></div>';
+    window.__showAppError&&window.__showAppError(e.message,e.stack);
+  }
+})();
+</script>
+
+<div id="padelGate" style="position:fixed;inset:0;z-index:99999;background:#0A0F1C;display:flex;align-items:center;justify-content:center;padding:24px">
+ <div style="max-width:360px;width:100%;text-align:center">
+  <div style="font-size:34px;margin-bottom:6px">🎾</div>
+  <h1 style="color:#fff;font-size:20px;font-weight:800;margin:0 0 4px">Padel Bokning</h1>
+  <p style="color:#8EA3C8;font-size:13px;margin:0 0 18px">Sidan är låst för Padelproffsen</p>
+  <form id="padelGateForm">
+   <input id="padelGatePw" type="password" placeholder="Lösenord" autocomplete="off"
+     style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid #22314F;background:#101830;color:#fff;font-size:15px;outline:none"/>
+   <button type="submit" style="width:100%;margin-top:10px;padding:12px 14px;border-radius:10px;border:none;background:#7CFF4B;color:#0A0F1C;font-weight:800;font-size:15px;cursor:pointer">Öppna</button>
+  </form>
+  <p id="padelGateErr" style="color:#FF6B6B;font-size:13px;margin:10px 0 0;display:none">Fel lösenord – prova igen</p>
+ </div>
+</div>
+<script>
+(function(){
+  var EXPECTED='0bdd13fe3b6d75c14cbd21b75b405fb3a5f5c3fed3ed373f3b96267e43002524';
+  var LS='padel-proffsen-gate-ok';
+  function unlock(){ var g=document.getElementById('padelGate'); if(g) g.parentNode.removeChild(g); }
+  function ok(v){ try{if(localStorage.getItem(LS)===v){unlock();return true;}}catch(e){} return false; }
+  function sha(s){ return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function(b){
+    return Array.from(new Uint8Array(b)).map(function(x){return ('0'+x.toString(16)).slice(-2);}).join(''); }); }
+  if(!document.getElementById('padelGate')) return;
+  if(ok(EXPECTED)) return;
+  var form=document.getElementById('padelGateForm');
+  var pw=document.getElementById('padelGatePw'); pw.focus();
+  form.addEventListener('submit', function(e){ e.preventDefault();
+    sha(pw.value).then(function(h){
+      if(h===EXPECTED){ try{localStorage.setItem(LS,h);}catch(e){} unlock(); }
+      else{ document.getElementById('padelGateErr').style.display='block'; pw.value=''; pw.focus(); }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
