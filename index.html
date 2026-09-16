@@ -344,136 +344,154 @@ function renderKnownNames(filterText){
 function isAuditHost(){
   try{ const h=location.hostname||''; return h.includes('metaai') || location.href.includes('/spaces/v2/') || h.includes('audit'); }catch(e){ return false; }
 }
-const LS_PENDING='padel-bokning-publik-pending-sync';
-let _syncInProgress=false;
-let _pendingSync=false;
+/* ===== Mutationsbaserad synk (v2) =====
+ * Servern (npoint) är auktoritativ. Klienten POST:ar aldrig kompletta
+ * snapshots. Varje ändring blir en liten operation i en lokal kö; kön
+ * appliceras mot FÄRSK serverdata vid varje synk. Gamla enheter kan
+ * därför inte längre skriva över nyare serverdata med gamla helhetskopior.
+ */
+const LS_MUTQ='padel-bokning-publik-mutq-v1';
+let _mutQueue=(function(){ try{ const v=JSON.parse(localStorage.getItem(LS_MUTQ)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } })();
+let _flushing=false, _flushAgain=false, _flushTimer=null;
 function _delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
-async function syncToNpoint(){
-  if(isAuditHost()) return;
-  if(_syncInProgress){ _pendingSync=true; return; }
-  _syncInProgress=true;
-  const payload={bookings:state.bookings,bokad:state.bokad,custom:state.custom,links:state.links||{},updated:new Date().toISOString()};
-  try{ localStorage.setItem(LS_LASTWRITE, payload.updated); }catch(e2){}
-  let success=false;
-  for(let attempt=0; attempt<3 && !success; attempt++){
-    try{
-      const ctrl=new AbortController(); 
-      const to=3000+attempt*2500;
-      const t=setTimeout(()=>ctrl.abort(),to);
-      await fetch(NPOINT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:ctrl.signal});
-      clearTimeout(t);
-      success=true;
-      try{ localStorage.removeItem(LS_PENDING); }catch(e){}
-      _pendingSync=false;
-    }catch(e){
-      if(attempt<2) await _delay(1200*(attempt+1));
-    }
+function _saveMutQueue(){ try{ localStorage.setItem(LS_MUTQ, JSON.stringify(_mutQueue.slice(-200))); }catch(e){} }
+function _showSyncStatus(msg){ try{ const el=document.getElementById('syncStatus'); if(el){ el.textContent=msg||''; el.style.display=msg?'block':'none'; } }catch(e){} }
+/* Applicera EN operation på ett state-objekt {bookings,bokad,custom,links}.
+ * op: {op:'book'|'unbook'|'unbookLast'|'setBokad'|'addCustom'|'removeCustom', week, slot, key, name, value, entry, id, ts} */
+function applyOp(s, op){
+  if(!s) return;
+  s.bookings=s.bookings||{}; s.bokad=s.bokad||{}; s.custom=s.custom||{}; s.links=s.links||{};
+  switch(op.op){
+    case 'book': {
+      if(!op.week||!op.slot||!op.name) break;
+      if(!s.bookings[op.week]) s.bookings[op.week]={};
+      const arr=s.bookings[op.week][op.slot]||(s.bookings[op.week][op.slot]=[]);
+      if(arr.length<4 && !arr.includes(op.name)) arr.push(op.name);
+      break; }
+    case 'unbook': {
+      const arr=(s.bookings[op.week]||{})[op.slot];
+      if(Array.isArray(arr)) s.bookings[op.week][op.slot]=arr.filter(n=>n!==op.name);
+      break; }
+    case 'unbookLast': {
+      const arr=(s.bookings[op.week]||{})[op.slot];
+      if(Array.isArray(arr)&&arr.length) arr.pop();
+      break; }
+    case 'setBokad': {
+      if(!op.key) break;
+      if(op.value) s.bokad[op.key]=true; else delete s.bokad[op.key];
+      break; }
+    case 'addCustom': {
+      if(!op.week||!op.entry||!op.entry.id) break;
+      if(!Array.isArray(s.custom[op.week])) s.custom[op.week]=[];
+      if(!s.custom[op.week].some(c=>c&&c.id===op.entry.id)) s.custom[op.week].push(op.entry);
+      break; }
+    case 'removeCustom': {
+      if(Array.isArray(s.custom[op.week])) s.custom[op.week]=s.custom[op.week].filter(c=>c&&c.id!==op.id);
+      break; }
   }
-  if(!success){
-    try{ localStorage.setItem(LS_PENDING, JSON.stringify(payload)); }catch(e){}
-    // schema bakgrunds-retry
-    setTimeout(()=>{ _syncInProgress=false; syncToNpoint(); }, 6000);
-    try{
-      // liten visuell varning om det finns plats för det
-      const el=document.getElementById('syncStatus');
-      if(el){ el.textContent='⚠️ Synk misslyckades – försöker igen...'; el.style.display='block'; }
-    }catch(e){}
-  } else {
-    try{
-      const el=document.getElementById('syncStatus');
-      if(el){ el.textContent=''; el.style.display='none'; }
-    }catch(e){}
-    if(_pendingSync){
-      _pendingSync=false;
-      _syncInProgress=false;
-      syncToNpoint();
-      return;
-    }
-  }
-  _syncInProgress=false;
-  if(_pendingSync){ _pendingSync=false; syncToNpoint(); }
 }
+/* Verifiera att en operations effekt syns i serverstatet (mot skriv-race). */
+function verifyOp(s, op){
+  if(!s) return false;
+  switch(op.op){
+    case 'book': { const arr=((s.bookings||{})[op.week]||{})[op.slot]; return Array.isArray(arr)&&arr.includes(op.name); }
+    case 'unbook': { const arr=((s.bookings||{})[op.week]||{})[op.slot]; return !Array.isArray(arr)||!arr.includes(op.name); }
+    case 'unbookLast': return true; /* kan ej verifieras exakt, lita på serverns lista */
+    case 'setBokad': return op.value?!!(s.bokad||{})[op.key]:!(s.bokad||{})[op.key];
+    case 'addCustom': { const c=(s.custom||{})[op.week]||[]; return c.some(x=>x&&x.id===(op.entry||{}).id); }
+    case 'removeCustom': { const c=(s.custom||{})[op.week]||[]; return !c.some(x=>x&&x.id===op.id); }
+    default: return true;
+  }
+}
+async function fetchFreshState(){
+  const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),8000);
+  try{
+    const r=await fetch(NPOINT_URL+'?_='+Date.now(),{signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }finally{ clearTimeout(to); }
+}
+function enqueueOp(op){
+  op.ts=Date.now();
+  _mutQueue.push(op); _saveMutQueue();
+  clearTimeout(_flushTimer); _flushTimer=setTimeout(flushMutations, 400);
+}
+async function flushMutations(){
+  if(isAuditHost()) return;
+  if(_flushing){ _flushAgain=true; return; }
+  if(!_mutQueue.length) return;
+  _flushing=true;
+  let applied=[];
+  for(let attempt=0; attempt<3 && applied.length===0; attempt++){
+    try{
+      const fresh=await fetchFreshState();
+      if(!fresh||typeof fresh!=='object') throw new Error('fetch failed');
+      const ops=_mutQueue.slice();
+      const merged={ bookings:fresh.bookings||{}, bokad:fresh.bokad||{}, custom:fresh.custom||{}, links:fresh.links||{}, updated:new Date().toISOString() };
+      ops.forEach(op=>applyOp(merged,op));
+      const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),9000);
+      try{
+        const r=await fetch(NPOINT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged),signal:ctrl.signal});
+        if(!r.ok) throw new Error('post '+r.status);
+      }finally{ clearTimeout(to); }
+      // Läs tillbaka och verifiera att operationerna verkligen slog igenom (mot race mellan enheter)
+      const check=await fetchFreshState();
+      const missing=[];
+      ops.forEach(op=>{ if(!verifyOp(check,op)) missing.push(op); });
+      _mutQueue=missing.concat(_mutQueue.slice(ops.length));
+      _saveMutQueue();
+      applied=ops.filter(op=>missing.indexOf(op)<0);
+    }catch(e){
+      if(attempt<2) await _delay(1500*(attempt+1));
+    }
+  }
+  _flushing=false;
+  if(applied.length===0 && _mutQueue.length){
+    _showSyncStatus('⚠️ Synk misslyckades – försöker igen...');
+    _flushTimer=setTimeout(flushMutations, 15000);
+  } else {
+    _showSyncStatus('');
+    await loadFromNpoint();
+  }
+  if(_flushAgain){ _flushAgain=false; clearTimeout(_flushTimer); _flushTimer=setTimeout(flushMutations,400); }
+}
+/* Bakåtkompatibel alias – gamla anrop landar i mutationskön */
+function syncToNpoint(){ flushMutations(); }
+
 async function loadFromNpoint(){
   if(isAuditHost()) return;
   try{
-    const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),3000);
-    const r=await fetch(NPOINT_URL,{signal:ctrl.signal});
-    if(!r.ok) return;
-    const j=await r.json();
-    if(j && j.bookings && typeof j.bookings==='object'){
-      let hasData=false;
-      Object.keys(j.bookings).forEach(wk=>{ const s=j.bookings[wk]; if(s && Object.keys(s).length>0) hasData=true; });
-      if(hasData){
-        // Stale-write-skydd: om vi själva postat nyare än serverns 'updated' (npoint-cachat), hoppa över bookings-uppdatering men ta ändå bokad/links
-        let remoteUpdated=0; try{ remoteUpdated=Date.parse(j.updated||'')||0; }catch(e2){}
-        let localLastWrite=0; try{ localLastWrite=Date.parse(localStorage.getItem(LS_LASTWRITE)||'')||0; }catch(e3){}
-        const isStaleWrite = !!(remoteUpdated && localLastWrite && localLastWrite > remoteUpdated + 30000);
-        if(isStaleWrite){
-          // Uppdatera bara bokad/links, behåll lokala bookings och försök synka igen
-          if(j.bokad && typeof j.bokad==='object'){ state.bokad={...state.bokad, ...j.bokad}; }
-          if(j.links && typeof j.links==='object'){ state.links={...state.links, ...j.links}; }
-          saveAllLocal(); render();
-          setTimeout(()=>syncToNpoint(), 1500);
-          return;
-        }
-        // Bevara egna bokningar som ev. inte hunnit synkas (egen POST som failat)
-        const myName=(state.name||'').trim();
-        const myLower=myName.toLowerCase();
-        const myLocalSlots=[];
-        if(myName){
-          Object.keys(state.bookings).forEach(wk=>{
-            Object.keys(state.bookings[wk]||{}).forEach(sid=>{
-              const arr=state.bookings[wk][sid]||[];
-              if(arr.some(n=> (n||'').toLowerCase()===myLower)){
-                myLocalSlots.push({wk,sid});
-              }
-            });
-          });
-        }
-        // Servern är sanningen: ERSÄTT helt så att avbokningar propagerar (ingen union-merge!)
-        const nb={};
-        Object.keys(j.bookings).forEach(wk=>{
-          nb[wk]={};
-          Object.keys(j.bookings[wk]).forEach(sid=>{
-            nb[wk][sid]=Array.isArray(j.bookings[wk][sid])?j.bookings[wk][sid].slice(0,4):[];
-          });
-        });
-        // Lägg tillbaka mina egna om servern saknar dem (missad POST)
-        if(myName && myLocalSlots.length){
-          let needResync=false;
-          myLocalSlots.forEach(({wk,sid})=>{
-            if(!nb[wk]) nb[wk]={};
-            const arr=nb[wk][sid]||[];
-            const hasMe=arr.some(n=> (n||'').toLowerCase()===myLower);
-            if(!hasMe && arr.length<4){
-              arr.push(myName);
-              nb[wk][sid]=arr;
-              needResync=true;
-            }
-          });
-          if(needResync){
-            // behåll lokalt och försök synka igen snart
-            state.bookings=nb;
-            saveAllLocal();
-            setTimeout(()=>syncToNpoint(), 1200);
-          }
-        }
-        state.bookings=nb;
-        state.bokad=(j.bokad && typeof j.bokad==='object')?{...j.bokad}:{};
-        state.links=(j.links && typeof j.links==='object')?{...j.links}:{};
-        state.custom={};
-        if(j.custom && typeof j.custom==='object'){
-          Object.keys(j.custom).forEach(wk=>{ state.custom[wk]=Array.isArray(j.custom[wk])?j.custom[wk]:[]; });
-        }
-        WEEKS.forEach(w=>{
-          if(!state.bookings[w.id]) state.bookings[w.id]={};
-          if(!state.custom[w.id]) state.custom[w.id]=[];
-        });
-        state.npointLoaded=true;
-        saveAllLocal();
-        render();
-      }
+    const j=await fetchFreshState();
+    if(!j||!j.bookings||typeof j.bookings!=='object') return;
+    let hasData=false;
+    Object.keys(j.bookings).forEach(wk=>{ const s=j.bookings[wk]; if(s&&Object.keys(s).length>0) hasData=true; });
+    if(!hasData) return;
+    // Servern är sanningen: ERSÄTT lokalt helt så att avbokningar och
+    // andras ändringar propagerar. Egna ännu ej synkade ändringar ligger
+    // i mutationskön och appliceras lokalt nedan + vid nästa flush.
+    const nb={};
+    Object.keys(j.bookings).forEach(wk=>{
+      nb[wk]={};
+      Object.keys(j.bookings[wk]).forEach(sid=>{
+        nb[wk][sid]=Array.isArray(j.bookings[wk][sid])?j.bookings[wk][sid].slice(0,4):[];
+      });
+    });
+    state.bookings=nb;
+    state.bokad=(j.bokad&&typeof j.bokad==='object')?{...j.bokad}:{};
+    state.links=(j.links&&typeof j.links==='object')?{...j.links}:{};
+    state.custom={};
+    if(j.custom&&typeof j.custom==='object'){
+      Object.keys(j.custom).forEach(wk=>{ state.custom[wk]=Array.isArray(j.custom[wk])?j.custom[wk]:[]; });
     }
+    WEEKS.forEach(w=>{
+      if(!state.bookings[w.id]) state.bookings[w.id]={};
+      if(!state.custom[w.id]) state.custom[w.id]=[];
+    });
+    // Applicera ännu ej synkade egna operationer lokalt så UI stämmer direkt
+    try{ _mutQueue.forEach(op=>applyOp(state,op)); }catch(e){}
+    state.npointLoaded=true;
+    saveAllLocal();
+    render();
   }catch(e){}
 }
 function currentWeek(){ const w=WEEKS.find(x=>x.id===state.weekId); return (w&&w.n>=THIS_WEEK_NO)?w:currentVisibleWeek(); }
@@ -550,7 +568,7 @@ function renderFull(){
     list.appendChild(row);
   });
   list.querySelectorAll('.toggle').forEach(btn=>{
-    btn.onclick=()=>{ const k=btn.getAttribute('data-k'); state.bokad[k]=!state.bokad[k]; saveAllLocal(); syncToNpoint(); renderFull(); };
+    btn.onclick=()=>{ const k=btn.getAttribute('data-k'); state.bokad[k]=!state.bokad[k]; enqueueOp({op:'setBokad',key:k,value:!!state.bokad[k]}); saveAllLocal(); syncToNpoint(); renderFull(); };
   });
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -593,7 +611,7 @@ function renderDays(){
             if(!state.name){ const inp=document.getElementById('nameInput'); inp.focus(); inp.scrollIntoView({behavior:'smooth',block:'center'}); return; }
             book(wkId,s.id,state.name);
           };
-          if(btns[1]) btns[1].onclick=()=>{ const arr=state.bookings[wkId][s.id]||[]; if(arr.length){ arr.pop(); saveAllLocal(); syncToNpoint(); render(); } };
+          if(btns[1]) btns[1].onclick=()=>{ const arr=state.bookings[wkId][s.id]||[]; if(arr.length){ arr.pop(); enqueueOp({op:'unbookLast',week:wkId,slot:s.id}); saveAllLocal(); syncToNpoint(); render(); } };
         }
         slotsDiv.appendChild(el);
       });
@@ -611,11 +629,12 @@ function book(wkId,slotId,name){
   if(!state.bookings[wkId][slotId]) state.bookings[wkId][slotId]=[];
   const arr=state.bookings[wkId][slotId];
   if(arr.length>=4) return; if(arr.includes(name)) return;
-  arr.push(name); saveAllLocal(); syncToNpoint(); render();
+  arr.push(name); enqueueOp({op:'book',week:wkId,slot:slotId,name:name}); saveAllLocal(); syncToNpoint(); render();
 }
 function unbook(wkId,slotId,name){
   if(!state.bookings[wkId]||!state.bookings[wkId][slotId]) return;
   state.bookings[wkId][slotId]=state.bookings[wkId][slotId].filter(n=>n!==name);
+  enqueueOp({op:'unbook',week:wkId,slot:slotId,name:name});
   saveAllLocal(); syncToNpoint(); render();
 }
 
@@ -645,7 +664,9 @@ document.getElementById('modalSave').onclick=()=>{
   const short=(DAYS_SHORT[day]||day.slice(0,3).toLowerCase())+' '+hh+'.'+m;
   const id=day.slice(0,3).toLowerCase()+'-'+hh+m+'-'+Date.now();
   if(!state.custom[currentWeek().id]) state.custom[currentWeek().id]=[];
-  state.custom[currentWeek().id].push({id,day,time:hh+'.'+m,short});
+  const _ce={id:id,day:day,time:hh+'.'+m,short:short};
+  state.custom[currentWeek().id].push(_ce);
+  enqueueOp({op:'addCustom',week:currentWeek().id,entry:_ce});
   saveAllLocal(); syncToNpoint(); render(); closeModal();
 };
 
@@ -665,11 +686,12 @@ document.getElementById('addCustomBtn').onclick=()=>openModal('Fredag');
 
 (function boot(){
   try{
+    try{ localStorage.removeItem('padel-bokning-publik-pending-sync'); localStorage.removeItem(LS_LASTWRITE); }catch(m){}
     initState(); render();
     setTimeout(loadFromNpoint,150);
     try{
-      window.addEventListener('online', ()=>{ try{ const pend=localStorage.getItem(LS_PENDING); if(pend) syncToNpoint(); }catch(e){} });
-      document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ try{ const pend=localStorage.getItem(LS_PENDING); if(pend) syncToNpoint(); }catch(e){} } });
+      window.addEventListener('online', ()=>{ try{ if(_mutQueue.length) flushMutations(); }catch(e){} });
+      document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ try{ if(_mutQueue.length) flushMutations(); else loadFromNpoint(); }catch(e){} } });
     }catch(e){}
 
   }catch(e){
