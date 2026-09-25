@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#0C1B33" />
-<!-- rebuild 2026-08-21 v10 fresh -->
+<!-- rebuild 2026-09-25 v11 weeks v40-v44 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
@@ -239,9 +239,14 @@ const WEEKS=[
   {id:'v37', n:37, label:'Vecka 37 • 7-13 sep', range:'7-13 sep'},
   {id:'v38', n:38, label:'Vecka 38 • 14-20 sep', range:'14-20 sep'},
   {id:'v39', n:39, label:'Vecka 39 • 21-27 sep', range:'21-27 sep'},
+  {id:'v40', n:40, label:'Vecka 40 • 28 sep-4 okt', range:'28 sep-4 okt'},
+  {id:'v41', n:41, label:'Vecka 41 • 5-11 okt', range:'5-11 okt'},
+  {id:'v42', n:42, label:'Vecka 42 • 12-18 okt', range:'12-18 okt'},
+  {id:'v43', n:43, label:'Vecka 43 • 19-25 okt', range:'19-25 okt'},
+  {id:'v44', n:44, label:'Vecka 44 • 26 okt-1 nov', range:'26 okt-1 nov'},
 ];
 function isoWeekNum(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(x.getUTCDay()||7); x.setUTCDate(x.getUTCDate()+4-day); const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)); return Math.ceil((((x-y)/86400000)+1)/7); }
-const THIS_WEEK_NO=Math.min(Math.max(isoWeekNum(new Date()),34),39);
+const THIS_WEEK_NO=Math.min(Math.max(isoWeekNum(new Date()),34),WEEKS[WEEKS.length-1].n);
 // Passerade veckor döljs automatiskt: visa bara veckor fr.o.m. innevarande
 const VISIBLE_WEEKS=WEEKS.filter(w=>w.n>=THIS_WEEK_NO);
 function currentVisibleWeek(){ return (WEEKS.find(x=>x.n===THIS_WEEK_NO)) || VISIBLE_WEEKS[0] || WEEKS[0]; }
@@ -525,7 +530,7 @@ function render(){
       else badge.style.display='none';
     }
     document.getElementById('addCustomBtn').textContent='+ Lägg till egen tid — gäller '+wk.id;
-    const fr=document.getElementById('footRange'); if(fr) fr.textContent='Öppen för alla med länken • 4/4 grönt • 3/4 gult • v'+THIS_WEEK_NO+'–v39';
+    const fr=document.getElementById('footRange'); if(fr) fr.textContent='Öppen för alla med länken • 4/4 grönt • 3/4 gult • v'+THIS_WEEK_NO+'–v'+WEEKS[WEEKS.length-1].n;
     renderWeekNav();
     renderName();
     renderFull();
