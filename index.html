@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#0C1B33" />
-<!-- rebuild 2026-09-25 v11 weeks v40-v44 -->
+<!-- rebuild 2026-10-13 v12 sync fixes + Messenger-webview gate + weeks v45-v48 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
@@ -137,6 +137,9 @@
   /* Modal */
   #customModal{display:none;position:fixed;inset:0;z-index:60;background:rgba(0,8,20,.66);backdrop-filter:none;align-items:center;justify-content:center;padding:16px}
   #customModal.open{display:flex}
+  #inappModal{display:none;position:fixed;inset:0;z-index:100000;background:rgba(0,8,20,.85);align-items:center;justify-content:center;padding:16px}
+  #inappModal.open{display:flex}
+  #inappBanner{display:none;background:#b45309;color:#fff;padding:10px 16px;font-size:13px;line-height:1.45;text-align:center}
   .modal-card{width:100%;max-width:360px;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:16px}
   .modal-title{font-family:Sora,sans-serif;font-weight:700;font-size:16px;margin:0 0 8px}
   .modal-sub{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.4}
@@ -152,6 +155,8 @@
   <pre id="error-pre"></pre>
   <button class="retry" onclick="location.reload()">Ladda om sidan</button>
 </div>
+
+<div id="inappBanner">⚠️ Du öppnade sidan inuti Messenger. Där går det inte att boka eller ändra – bokningar kan försvinna. Tryck på ⋯ och välj ”Öppna i webbläsare” (Safari/Chrome) i stället.</div>
 
 <div id="loading">Laddar Padel Bokning…</div>
 <div id="syncStatus" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#b45309;color:white;padding:6px 12px;border-radius:999px;font-size:12px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>
@@ -193,6 +198,20 @@
   </div>
 </div>
 
+<div id="inappModal" aria-modal="true" role="dialog">
+  <div class="modal-card">
+    <div class="modal-title">Öppna i webbläsaren istället 🎾</div>
+    <p class="modal-sub">Du är inne via Messengers inbyggda webbläsare. Den sparar inget pålitligt, så bokningar här kan försvinna – därför är bokning och ändringar spärrade i det här läget.</p>
+    <p class="modal-sub" style="margin:0 0 6px">Gör så här:</p>
+    <p class="modal-sub" style="margin:0 0 4px">1. Tryck på ⋯ (eller ⋮) uppe i hörnet.</p>
+    <p class="modal-sub" style="margin:0 0 4px">2. Välj ”Öppna i webbläsare” / ”Öppna i Safari”.</p>
+    <p class="modal-sub" style="margin:0 0 12px">3. Tips: lägg sedan till sidan på hemskärmen (Dela → Lägg till på hemskärmen), så slipper du Messenger helt framöver.</p>
+    <div class="modal-row">
+      <button id="inappClose" class="btn-ghost" style="flex:1">Stäng – jag bara tittar</button>
+    </div>
+  </div>
+</div>
+
 <div id="customModal" aria-modal="true" role="dialog">
   <div class="modal-card">
     <div class="modal-title" id="modalTitle">Lägg till egen tid</div>
@@ -216,6 +235,16 @@
   const root=document.getElementById('error-root');
   const pre=document.getElementById('error-pre');
   function showErr(msg, stack){
+    // v12: När appen väl är igång får ett enstaka skriptfel (t.ex. från en
+    // webview eller ett tillägg) INTE blanka hela sidan – visa bara en
+    // tillfällig varning. Felrutan används bara om appen aldrig startade.
+    if(window.__appBooted){
+      try{
+        const el=document.getElementById('syncStatus');
+        if(el){ el.textContent='⚠️ Något gick fel – dina bokningar är sparade lokalt, försök igen'; el.style.display='block'; setTimeout(()=>{ el.style.display='none'; },6000); }
+      }catch(e){}
+      return;
+    }
     const l=document.getElementById('loading'); if(l) l.style.display='none';
     const a=document.getElementById('app'); if(a) a.style.display='none';
     root.style.display='block';
@@ -244,6 +273,10 @@ const WEEKS=[
   {id:'v42', n:42, label:'Vecka 42 • 12-18 okt', range:'12-18 okt'},
   {id:'v43', n:43, label:'Vecka 43 • 19-25 okt', range:'19-25 okt'},
   {id:'v44', n:44, label:'Vecka 44 • 26 okt-1 nov', range:'26 okt-1 nov'},
+  {id:'v45', n:45, label:'Vecka 45 • 2-8 nov', range:'2-8 nov'},
+  {id:'v46', n:46, label:'Vecka 46 • 9-15 nov', range:'9-15 nov'},
+  {id:'v47', n:47, label:'Vecka 47 • 16-22 nov', range:'16-22 nov'},
+  {id:'v48', n:48, label:'Vecka 48 • 23-29 nov', range:'23-29 nov'},
 ];
 function isoWeekNum(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(x.getUTCDay()||7); x.setUTCDate(x.getUTCDate()+4-day); const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)); return Math.ceil((((x-y)/86400000)+1)/7); }
 const THIS_WEEK_NO=Math.min(Math.max(isoWeekNum(new Date()),34),WEEKS[WEEKS.length-1].n);
@@ -301,6 +334,9 @@ function saveAllLocal(){
 }
 
 function getKnownNames(){
+  // v12: Välj den vanligast förekommande stavningen per namn, så att
+  // varianter som "Johan rautila"/"Johan Rautila" inte lever vidare som
+  // olika identiteter när nya bokningar görs.
   const map=new Map();
   try{
     Object.values(state.bookings||{}).forEach(wk=>{
@@ -308,18 +344,28 @@ function getKnownNames(){
         (arr||[]).forEach(n=>{
           const t=String(n).trim(); if(!t) return;
           const k=t.toLowerCase();
-          if(!map.has(k)) map.set(k,t);
+          if(!map.has(k)) map.set(k,new Map());
+          const vm=map.get(k); vm.set(t,(vm.get(t)||0)+1);
         });
       });
     });
   }catch(e){}
-  return Array.from(map.values()).sort((a,b)=>a.localeCompare(b,'sv'));
+  const out=[];
+  map.forEach(vm=>{ let best='',bc=-1; vm.forEach((c,v)=>{ if(c>bc){ bc=c; best=v; } }); if(best) out.push(best); });
+  return out.sort((a,b)=>a.localeCompare(b,'sv'));
 }
 function canonicalName(input){
   const t=String(input||'').trim(); if(!t) return '';
   const k=t.toLowerCase();
   const known=getKnownNames();
   for(const kn of known){ if(kn.toLowerCase()===k) return kn; }
+  // v12: Ett enda ord som entydigt är för- eller efternamnet på en känd
+  // spelare snäpps till hela namnet (t.ex. "Peter" -> "Peter Qvist" om
+  // bara en Peter finns). Vid flera kandidater lämnas texten som den är.
+  if(!/\s/.test(k)){
+    const cands=known.filter(kn=>{ const kp=kn.toLowerCase().split(/\s+/); return kp[0]===k||kp[kp.length-1]===k; });
+    if(cands.length===1) return cands[0];
+  }
   // collapse multiple spaces, keep casing as typed but normalized
   return t.replace(/\s+/g,' ').slice(0,40);
 }
@@ -339,6 +385,7 @@ function renderKnownNames(filterText){
   row.innerHTML=list.map(n=>`<button type="button" class="known-chip ${state.name===n?'active':''}" data-n="${n.replace(/"/g,'&quot;')}">${n.replace(/</g,'&lt;')}</button>`).join('');
   row.querySelectorAll('button').forEach(btn=>{
     btn.onclick=()=>{
+      if(!guardChange()) return;
       const nm=btn.getAttribute('data-n');
       document.getElementById('nameInput').value=nm;
       state.name=nm; saveAllLocal(); editingName=false; render();
@@ -349,6 +396,19 @@ function renderKnownNames(filterText){
 function isAuditHost(){
   try{ const h=location.hostname||''; return h.includes('metaai') || location.href.includes('/spaces/v2/') || h.includes('audit'); }catch(e){ return false; }
 }
+/* ===== v12: Spärr mot Messengers/Facebooks inbyggda webbläsare =====
+ * Webviewn har opålitlig localStorage och kan dödas när användaren växlar
+ * tillbaka till chatten – synkkön och namnet försvinner då innan bokningen
+ * hunnit till servern. Därför: i webviewn går det att TITTA men inte att
+ * boka/ändra. Detektionen sker via user-agent (FBAN/FBAV/FB_IAB/Messenger).
+ */
+function isInAppBrowser(){
+  try{ const ua=navigator.userAgent||''; return /FBAN|FBAV|FB_IAB|Messenger/i.test(ua); }catch(e){ return false; }
+}
+const IN_APP=isInAppBrowser();
+function openInappModal(){ const m=document.getElementById('inappModal'); if(m) m.classList.add('open'); }
+function closeInappModal(){ const m=document.getElementById('inappModal'); if(m) m.classList.remove('open'); }
+function guardChange(){ if(IN_APP){ openInappModal(); return false; } return true; }
 /* ===== Mutationsbaserad synk (v2) =====
  * Servern (npoint) är auktoritativ. Klienten POST:ar aldrig kompletta
  * snapshots. Varje ändring blir en liten operation i en lokal kö; kön
@@ -357,7 +417,7 @@ function isAuditHost(){
  */
 const LS_MUTQ='padel-bokning-publik-mutq-v1';
 let _mutQueue=(function(){ try{ const v=JSON.parse(localStorage.getItem(LS_MUTQ)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } })();
-let _flushing=false, _flushAgain=false, _flushTimer=null;
+let _flushing=false, _flushAgain=false, _flushTimer=null, _flushFailStreak=0;
 function _delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
 function _saveMutQueue(){ try{ localStorage.setItem(LS_MUTQ, JSON.stringify(_mutQueue.slice(-200))); }catch(e){} }
 function _showSyncStatus(msg){ try{ const el=document.getElementById('syncStatus'); if(el){ el.textContent=msg||''; el.style.display=msg?'block':'none'; } }catch(e){} }
@@ -419,7 +479,9 @@ async function fetchFreshState(){
 function enqueueOp(op){
   op.ts=Date.now();
   _mutQueue.push(op); _saveMutQueue();
-  clearTimeout(_flushTimer); _flushTimer=setTimeout(flushMutations, 400);
+  // v12: kortare fördröjning (150 ms) så synken hinner klart även om
+  // användaren stänger sidan snabbt efteråt.
+  clearTimeout(_flushTimer); _flushTimer=setTimeout(flushMutations, 150);
 }
 async function flushMutations(){
   if(isAuditHost()) return;
@@ -432,7 +494,7 @@ async function flushMutations(){
       const fresh=await fetchFreshState();
       if(!fresh||typeof fresh!=='object') throw new Error('fetch failed');
       const ops=_mutQueue.slice();
-      const merged={ bookings:fresh.bookings||{}, bokad:fresh.bokad||{}, custom:fresh.custom||{}, links:fresh.links||{}, updated:new Date().toISOString() };
+      const merged={ bookings:fresh.bookings||{}, bokad:fresh.bokad||{}, custom:fresh.custom||{}, links:fresh.links||{}, updated:new Date().toISOString(), clientV:12, minClientV:12 };
       ops.forEach(op=>applyOp(merged,op));
       const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),9000);
       try{
@@ -451,12 +513,20 @@ async function flushMutations(){
     }
   }
   _flushing=false;
-  if(applied.length===0 && _mutQueue.length){
-    _showSyncStatus('⚠️ Synk misslyckades – försöker igen...');
-    _flushTimer=setTimeout(flushMutations, 15000);
+  // v12: Så länge NÅGON operation finns kvar i kön (även vid delvis lyckad
+  // synk) – behåll varningen och schemalägg ALLTID ett nytt försök med
+  // växande intervall. Tidigare tappades retry helt vid delvis lyckad synk
+  // och osynkade bokningar blev liggande tills användaren råkade agera igen.
+  if(_mutQueue.length){
+    _flushFailStreak++;
+    const wait=Math.min(5000*_flushFailStreak, 30000);
+    _showSyncStatus('⚠️ '+_mutQueue.length+' ändring(ar) väntar på synk – försöker igen…');
+    clearTimeout(_flushTimer); _flushTimer=setTimeout(flushMutations, wait);
+    if(applied.length) await loadFromNpoint();
   } else {
+    _flushFailStreak=0;
     _showSyncStatus('');
-    await loadFromNpoint();
+    if(applied.length) await loadFromNpoint();
   }
   if(_flushAgain){ _flushAgain=false; clearTimeout(_flushTimer); _flushTimer=setTimeout(flushMutations,400); }
 }
@@ -468,6 +538,8 @@ async function loadFromNpoint(){
   try{
     const j=await fetchFreshState();
     if(!j||!j.bookings||typeof j.bookings!=='object') return;
+    // v12: Framtidsskydd – kräver servern en nyare klient visas en tydlig uppmaning.
+    if(typeof j.minClientV==='number' && j.minClientV>12){ _showSyncStatus('⚠️ En nyare version av sidan krävs – ladda om sidan'); }
     let hasData=false;
     Object.keys(j.bookings).forEach(wk=>{ const s=j.bookings[wk]; if(s&&Object.keys(s).length>0) hasData=true; });
     if(!hasData) return;
@@ -537,6 +609,7 @@ function render(){
     renderDays();
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='block';
+    window.__appBooted=true;
   }catch(e){ window.__showAppError&&window.__showAppError(e.message,e.stack); }
 }
 function renderName(){
@@ -573,7 +646,7 @@ function renderFull(){
     list.appendChild(row);
   });
   list.querySelectorAll('.toggle').forEach(btn=>{
-    btn.onclick=()=>{ const k=btn.getAttribute('data-k'); state.bokad[k]=!state.bokad[k]; enqueueOp({op:'setBokad',key:k,value:!!state.bokad[k]}); saveAllLocal(); syncToNpoint(); renderFull(); };
+    btn.onclick=()=>{ if(!guardChange()) return; const k=btn.getAttribute('data-k'); state.bokad[k]=!state.bokad[k]; enqueueOp({op:'setBokad',key:k,value:!!state.bokad[k]}); saveAllLocal(); syncToNpoint(); renderFull(); };
   });
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -616,7 +689,11 @@ function renderDays(){
             if(!state.name){ const inp=document.getElementById('nameInput'); inp.focus(); inp.scrollIntoView({behavior:'smooth',block:'center'}); return; }
             book(wkId,s.id,state.name);
           };
-          if(btns[1]) btns[1].onclick=()=>{ const arr=state.bookings[wkId][s.id]||[]; if(arr.length){ arr.pop(); enqueueOp({op:'unbookLast',week:wkId,slot:s.id}); saveAllLocal(); syncToNpoint(); render(); } };
+          // v12: "Ångra" avbokar den person som faktiskt låg sist när man
+          // tryckte – med namn, inte med position. Tidigare togs det namn
+          // som råkade ligga sist PÅ SERVERN vid synktillfället bort,
+          // vilket kunde avboka fel person om någon annan hann boka emellan.
+          if(btns[1]) btns[1].onclick=()=>{ const arr=state.bookings[wkId][s.id]||[]; if(arr.length){ unbook(wkId,s.id,arr[arr.length-1]); } };
         }
         slotsDiv.appendChild(el);
       });
@@ -630,6 +707,7 @@ function renderDays(){
   });
 }
 function book(wkId,slotId,name){
+  if(!guardChange()) return;
   if(!state.bookings[wkId]) state.bookings[wkId]={};
   if(!state.bookings[wkId][slotId]) state.bookings[wkId][slotId]=[];
   const arr=state.bookings[wkId][slotId];
@@ -637,6 +715,7 @@ function book(wkId,slotId,name){
   arr.push(name); enqueueOp({op:'book',week:wkId,slot:slotId,name:name}); saveAllLocal(); syncToNpoint(); render();
 }
 function unbook(wkId,slotId,name){
+  if(!guardChange()) return;
   if(!state.bookings[wkId]||!state.bookings[wkId][slotId]) return;
   state.bookings[wkId][slotId]=state.bookings[wkId][slotId].filter(n=>n!==name);
   enqueueOp({op:'unbook',week:wkId,slot:slotId,name:name});
@@ -646,6 +725,7 @@ function unbook(wkId,slotId,name){
 /* Modal for custom time - replaces prompt/alert */
 let modalPresetDay=null;
 function openModal(presetDay){
+  if(!guardChange()) return;
   modalPresetDay=presetDay||'Fredag';
   const m=document.getElementById('customModal');
   document.getElementById('modalTitle').textContent='Lägg till egen tid';
@@ -676,6 +756,7 @@ document.getElementById('modalSave').onclick=()=>{
 };
 
 document.getElementById('saveNameBtn').onclick=()=>{
+  if(!guardChange()) return;
   const raw=(document.getElementById('nameInput').value||'').trim();
   const v=canonicalName(raw);
   if(!v){ document.getElementById('nameInput').focus(); return; }
@@ -693,10 +774,28 @@ document.getElementById('addCustomBtn').onclick=()=>openModal('Fredag');
   try{
     try{ localStorage.removeItem('padel-bokning-publik-pending-sync'); localStorage.removeItem(LS_LASTWRITE); }catch(m){}
     initState(); render();
+    // v12: I Messengers webview – visa bannern och förklara spärren direkt.
+    if(IN_APP){
+      const b=document.getElementById('inappBanner'); if(b) b.style.display='block';
+      const cb=document.getElementById('inappClose'); if(cb) cb.onclick=closeInappModal;
+      openInappModal();
+    }
+    // v12: Skicka ALLTID kvarlämnade osynkade ändringar från en tidigare
+    // session direkt vid start. Tidigare ritades de bara upp lokalt och
+    // skickades aldrig – bokaren såg sin bokning, ingen annan gjorde det.
+    if(_mutQueue.length){ _showSyncStatus('⚠️ Skickar osynkade ändringar…'); flushMutations(); }
     setTimeout(loadFromNpoint,150);
     try{
       window.addEventListener('online', ()=>{ try{ if(_mutQueue.length) flushMutations(); }catch(e){} });
-      document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ try{ if(_mutQueue.length) flushMutations(); else loadFromNpoint(); }catch(e){} } });
+      document.addEventListener('visibilitychange', ()=>{
+        if(document.visibilityState==='visible'){ try{ if(_mutQueue.length) flushMutations(); else loadFromNpoint(); }catch(e){} }
+        // v12: Försök synka även när sidan lämnas/stängs, inte bara vid återkomst.
+        else { try{ if(_mutQueue.length) flushMutations(); }catch(e){} }
+      });
+      window.addEventListener('pagehide', ()=>{ try{ if(_mutQueue.length) flushMutations(); }catch(e){} });
+      // v12: Hämta andras ändringar regelbundet medan sidan står öppen,
+      // så ingen bokar utifrån ett gammalt läge i onödan.
+      setInterval(()=>{ try{ if(document.visibilityState==='visible' && !_flushing && !_mutQueue.length) loadFromNpoint(); }catch(e){} }, 45000);
     }catch(e){}
 
   }catch(e){
