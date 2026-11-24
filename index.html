@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#0C1B33" />
-<!-- rebuild 2026-10-13 v12 sync fixes + Messenger-webview gate + weeks v45-v48 -->
+<!-- rebuild 2026-10-13 v12 sync fixes + Messenger-webview gate + weeks v45-v48; 2026-11-24 weeks v49-v53 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
@@ -277,6 +277,11 @@ const WEEKS=[
   {id:'v46', n:46, label:'Vecka 46 • 9-15 nov', range:'9-15 nov'},
   {id:'v47', n:47, label:'Vecka 47 • 16-22 nov', range:'16-22 nov'},
   {id:'v48', n:48, label:'Vecka 48 • 23-29 nov', range:'23-29 nov'},
+  {id:'v49', n:49, label:'Vecka 49 • 30 nov-6 dec', range:'30 nov-6 dec'},
+  {id:'v50', n:50, label:'Vecka 50 • 7-13 dec', range:'7-13 dec'},
+  {id:'v51', n:51, label:'Vecka 51 • 14-20 dec', range:'14-20 dec'},
+  {id:'v52', n:52, label:'Vecka 52 • 21-27 dec', range:'21-27 dec'},
+  {id:'v53', n:53, label:'Vecka 53 • 28 dec-3 jan', range:'28 dec-3 jan'},
 ];
 function isoWeekNum(d){ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(x.getUTCDay()||7); x.setUTCDate(x.getUTCDate()+4-day); const y=new Date(Date.UTC(x.getUTCFullYear(),0,1)); return Math.ceil((((x-y)/86400000)+1)/7); }
 const THIS_WEEK_NO=Math.min(Math.max(isoWeekNum(new Date()),34),WEEKS[WEEKS.length-1].n);
